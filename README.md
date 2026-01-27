@@ -24,58 +24,35 @@ Groq (fast & free-tier friendly)
 
 ❌ No hallucination outside uploaded documents
 
-🏗️ Project Structure
+📁 Project Structure
 legalrag/
 │
-├── app.py                      # Entry point (CLI / Streamlit launcher)
-├── check_chroma.py             # Verify vector DB & stored documents
-├── data_cleaning.py            # Optional preprocessing
-├── requirements.txt
-├── .env                        # API keys & configuration
-│
 ├── config/
-│   ├── settings.py
-│   └── __init__.py
+│   └── settings.py          # Configuration settings
 │
 ├── data/
-│   ├── uploads/                # Raw uploaded documents
-│   ├── legal_acts/             # Processed text files
-│   └── chroma_db/              # Persistent vector DB
+│   ├── uploads/             # Raw legal PDF/TXT files
+│   └── chroma_db/           # Persistent Chroma database
 │
 ├── src/
 │   ├── ingestion/
-│   │   ├── document_processor.py
-│   │   ├── vector_store.py
-│   │   ├── run_ingestion.py
-│   │   └── __init__.py
+│   │   ├── document_processor.py  # PDF loading & splitting
+│   │   └── vector_store.py        # ChromaDB management
 │   │
 │   ├── retrieval/
-│   │   ├── retriever.py
-│   │   └── __init__.py
+│   │   └── retriever.py           # Similarity search logic
 │   │
 │   ├── generation/
-│   │   ├── rag_pipeline.py
-│   │   └── __init__.py
+│   │   └── rag_pipeline.py        # Answer generation
 │   │
-│   ├── providers/
-│   │   ├── factory.py
-│   │   ├── groq_provider.py
-│   │   ├── huggingface_provider.py
-│   │   ├── hybrid_provider.py
-│   │   └── __init__.py
-│   │
-│   ├── evaluation/
-│   │   ├── metrics.py
-│   │   └── __init__.py
-│   │
-│   ├── ui/
-│   │   ├── streamlit_app.py
-│   │   └── __init__.py
-│   │
-│   └── utils/
-│       └── __init__.py
-
-
+│   └── ui/
+│       └── streamlit_app.py       # Frontend interface
+│
+├── data_cleaning.py         # Utility script for cleaning data
+├── .env                     # API Keys (Not committed)
+├── config.yaml              # User Auth Config
+├── requirements.txt         # Dependencies
+└── README.md                # Documentation
 ✅ Every folder contains __init__.py for stable imports & production readiness.
 
 ⚙️ Setup Instructions
