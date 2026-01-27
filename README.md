@@ -24,37 +24,6 @@ Groq (fast & free-tier friendly)
 
 ❌ No hallucination outside uploaded documents
 
-📁 Project Structure
-legalrag/
-│
-├── config/
-│   └── settings.py          # Configuration settings
-│
-├── data/
-│   ├── uploads/             # Raw legal PDF/TXT files
-│   └── chroma_db/           # Persistent Chroma database
-│
-├── src/
-│   ├── ingestion/
-│   │   ├── document_processor.py  # PDF loading & splitting
-│   │   └── vector_store.py        # ChromaDB management
-│   │
-│   ├── retrieval/
-│   │   └── retriever.py           # Similarity search logic
-│   │
-│   ├── generation/
-│   │   └── rag_pipeline.py        # Answer generation
-│   │
-│   └── ui/
-│       └── streamlit_app.py       # Frontend interface
-│
-├── data_cleaning.py         # Utility script for cleaning data
-├── .env                     # API Keys (Not committed)
-├── config.yaml              # User Auth Config
-├── requirements.txt         # Dependencies
-└── README.md                # Documentation
-✅ Every folder contains __init__.py for stable imports & production readiness.
-
 ⚙️ Setup Instructions
 1️⃣ Create Virtual Environment
 conda create -n legalrag310 python=3.10
@@ -168,8 +137,38 @@ Answer confidence scoring
 
 PDF upload via UI
 
-👤 Author
+📁 Project Structure
+legalrag/
+│
+├── config/
+│   └── settings.py          # Configuration settings
+│
+├── data/
+│   ├── uploads/             # Raw legal PDF/TXT files
+│   └── chroma_db/           # Persistent Chroma database
+│
+├── src/
+│   ├── ingestion/
+│   │   ├── document_processor.py  # PDF loading & splitting
+│   │   └── vector_store.py        # ChromaDB management
+│   │
+│   ├── retrieval/
+│   │   └── retriever.py           # Similarity search logic
+│   │
+│   ├── generation/
+│   │   └── rag_pipeline.py        # Answer generation
+│   │
+│   └── ui/
+│       └── streamlit_app.py       # Frontend interface
+│
+├── data_cleaning.py         # Utility script for cleaning data
+├── .env                     # API Keys (Not committed)
+├── config.yaml              # User Auth Config
+├── requirements.txt         # Dependencies
+└── README.md                # Documentation
+✅ Every folder contains __init__.py for stable imports & production readiness.
 
+👤 Author
 Usha Rani
 AI / Full-Stack Developer
 📌 Focus: RAG Systems, LangChain, Agentic AI
