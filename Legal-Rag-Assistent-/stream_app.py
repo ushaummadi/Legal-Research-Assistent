@@ -195,32 +195,35 @@ def run_streamlit_app():
     # ----------------------------------------------------------------
     # AUTH UI (Login + Signup), but login persistence is handled by cookie
     # ----------------------------------------------------------------
-    authenticator = build_authenticator(config)
+    config.setdefault("credentials", {}).setdefault("usernames", {})
 
+    # ✅ SINGLE BOX AUTH: Login + Signup tabs
     st.session_state.setdefault("authentication_status", None)
     st.session_state.setdefault("username", None)
     st.session_state.setdefault("name", None)
 
-    # Sidebar account section (login + signup)
-    with st.sidebar:
-        st.markdown("---")
-        with st.expander("👤 Account", expanded=True):
+    if st.session_state["authentication_status"] is not True:
+        st.sidebar.markdown("---")
+        with st.sidebar.expander("👤 Account", expanded=True):
             tab_login, tab_signup = st.tabs(["Login", "Sign up"])
 
             with tab_login:
-                name, authentication_status, username = authenticator.login("Login", "main")
-                # authenticator.login reads cookie; if cookie valid -> auto logged-in. [web:84]
+                st.info("👋 Welcome to LegalGPT")
+                with st.form("login_form", clear_on_submit=False):
+                    u = st.text_input("Username")
+                    p = st.text_input("Password", type="password")
+                    login_ok = st.form_submit_button("Login")
 
-                if authentication_status is False:
-                    st.error("❌ Wrong credentials")
-                elif authentication_status is None:
-                    st.info("Enter username + password")
-
-                if authentication_status is True:
-                    st.session_state["authentication_status"] = True
-                    st.session_state["username"] = username
-                    st.session_state["name"] = name
-                    authenticator.logout("🚪 Log out", "main")
+                if login_ok:
+                    user = config.get("credentials", {}).get("usernames", {}).get(u)
+                    if user and Hasher.check_pw(p, user["password"]):
+                        st.session_state["authentication_status"] = True
+                        st.session_state["username"] = u
+                        st.session_state["name"] = user.get("name", u)
+                        st.success("✅ Logged in!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Wrong credentials")
 
             with tab_signup:
                 with st.form("signup_form", clear_on_submit=True):
@@ -232,7 +235,6 @@ def run_streamlit_app():
                     signup_ok = st.form_submit_button("Create Account")
 
                 if signup_ok:
-                    config.setdefault("credentials", {}).setdefault("usernames", {})
                     if not all([new_fullname, new_email, new_user, new_pass, new_pass2]):
                         st.error("All fields required!")
                     elif new_pass != new_pass2:
@@ -240,17 +242,21 @@ def run_streamlit_app():
                     elif new_user in config["credentials"]["usernames"]:
                         st.error("Username exists!")
                     else:
+                        hashed = Hasher.hash(new_pass)
                         config["credentials"]["usernames"][new_user] = {
                             "name": new_fullname,
                             "email": new_email,
-                            "password": Hasher.hash(new_pass),
+                            "password": hashed,
                         }
                         save_config(config)
                         st.success("✅ Account created! Now login.")
+                        st.rerun()
 
-    if st.session_state.get("authentication_status") is not True:
         st.stop()
 
+    name = st.session_state["name"]
+    username = st.session_state["username"]
+    authentication_status = st.session_state["authentication_status"]
     # ----------------------------------------------------------------
     # Session init
     # ----------------------------------------------------------------
