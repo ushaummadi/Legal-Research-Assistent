@@ -21,15 +21,8 @@ from src.ingestion.vector_store import VectorStoreManager
 from src.generation.rag_pipeline import answer_question
 
 # --- PATHS ---
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-UPLOADS_DIR = DATA_DIR / "uploads"
-CHROMA_DIR = DATA_DIR / "chroma_db"
 CONFIG_PATH = BASE_DIR / "config.yaml"
 HISTORY_FILE = BASE_DIR / "chat_history.json"
-
-if str(BASE_DIR) not in sys.path:
-    sys.path.insert(0, str(BASE_DIR))
 
 # --- HELPER FUNCTIONS ---
 def load_all_history():
