@@ -1,34 +1,23 @@
 import sys
 from pathlib import Path
 
-# ✅ Python path FIRST (no Streamlit calls here)
+# FIX: Python path FIRST (before other imports)
 ROOT_DIR = Path(__file__).resolve().parents[2]  # Legal-Rag-Assistent-/
 sys.path.insert(0, str(ROOT_DIR))
-
 """
 LegalRAG: Indian Evidence Act RAG Assistant
 Full-Stack Streamlit + Chroma + HuggingFace (2026)
 """
 
-# ✅ Import Streamlit and set config BEFORE importing any modules that might call st.*
 import streamlit as st
-
-# ✅ MUST be first Streamlit command + called once [web:554]
-st.set_page_config(
-    page_title="LegalGPT - Evidence Act RAG",
-    page_icon="⚖️",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
-
-# ---- now safe to import other libs ----
 import json
 import uuid
+from pathlib import Path
 import yaml
 from yaml.loader import SafeLoader
 from streamlit_authenticator.utilities.hasher import Hasher
 
-# ✅ Project imports AFTER set_page_config (prevents “not first command” via imports) [web:560]
+# ✅ FIXED IMPORTS (LangChain v1+ 2026)
 from config.settings import settings
 from src.ingestion.document_processor import load_documents, split_documents
 from src.ingestion.vector_store import VectorStoreManager
@@ -71,6 +60,13 @@ def save_config(config):
 
 # --- MAIN APP ---
 def run_streamlit_app():
+    st.set_page_config(
+        page_title="LegalGPT - Evidence Act RAG",
+        page_icon="⚖️",
+        layout="wide",
+        initial_sidebar_state="expanded",
+    )
+
     if not CONFIG_PATH.exists():
         st.error("❌ config.yaml not found!")
         st.stop()
@@ -138,13 +134,16 @@ def run_streamlit_app():
         st.stop()
 
     name = st.session_state["name"]
+    username = st.session_state["username"]
+    authentication_status = st.session_state["authentication_status"]
 
     # ✅ TOTAL #171717 EVERYWHERE
     st.markdown(
         """
         <style>
+        /* TOTAL UNIFORM #171717 */
         html, body, #root, .stApp,
-        header[data-testid="stHeader"],
+        header[data-testid="stHeader"], 
         footer[data-testid="stFooter"],
         section[data-testid="stAppViewContainer"],
         section[data-testid="stChatInputContainer"],
@@ -153,7 +152,8 @@ def run_streamlit_app():
         [data-testid="stSidebar"] {
             background-color: #171717 !important;
         }
-
+        
+        /* Auth tabs styling */
         [data-testid="stSidebar"] .stTabs [data-baseweb="tab-list"] {
             background-color: #212121 !important;
         }
@@ -161,25 +161,46 @@ def run_streamlit_app():
             background-color: transparent !important;
             color: #ececf1 !important;
         }
-
-        .stChatInput > div > div { background-color: transparent !important; }
-        .stChatMessage, [data-testid="stChatMessage"] { background-color: transparent !important; }
-
-        [data-testid="metric-container"],
+        
+        /* Chat input */
+        .stChatInput > div > div {
+            background-color: transparent !important;
+        }
+        
+        /* Chat areas */
+        .stChatMessage, [data-testid="stChatMessage"] {
+            background-color: transparent !important;
+        }
+        
+        /* All elements match */
+        [data-testid="metric-container"], 
         [data-testid="stHorizontalBlock"],
         section[data-testid="stSidebar"] div.element-container {
             background-color: #171717 !important;
         }
+        /* Inputs, buttons, expanders */
+        .stTextInput > div > div > div {
+            background-color: #212121 !important;
+        }
+        .stButton > button {
+            background-color: #212121 !important;
+            color: #ececf1 !important;
+        }
+        /* Remove all borders */
+        * {
+            border-color: #303030 !important;
+        }
 
-        .stTextInput > div > div > div { background-color: #212121 !important; }
-        .stButton > button { background-color: #212121 !important; color: #ececf1 !important; }
-
-        * { border-color: #303030 !important; }
-
+        /* Compact sidebar padding */
         section[data-testid="stSidebar"] .block-container{ padding-top: 0.6rem; }
+
+        /* Reduce vertical gap between history rows */
         [data-testid="stSidebar"] div.stButton{ margin-bottom: 0.12rem !important; }
+
+        /* Reduce column padding inside sidebar rows */
         [data-testid="stSidebar"] [data-testid="column"]{ padding-left: 0.05rem !important; padding-right: 0.05rem !important; }
 
+        /* Title buttons base (unselected = transparent via type="tertiary") */
         [data-testid="stSidebar"] button[kind="tertiary"]{
           background: transparent !important;
           border: none !important;
@@ -192,6 +213,7 @@ def run_streamlit_app():
           color: #fff !important;
         }
 
+        /* Selected (type="secondary") -> light box */
         [data-testid="stSidebar"] button[kind="secondary"]{
           background: #353545 !important;
           border: none !important;
@@ -200,6 +222,7 @@ def run_streamlit_app():
           border-radius: 10px !important;
         }
 
+        /* Make (title + X) look like one combined box when selected */
         [data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div:first-child button[kind="secondary"]{
           border-top-right-radius: 0px !important;
           border-bottom-right-radius: 0px !important;
@@ -308,6 +331,7 @@ def run_streamlit_app():
             unsafe_allow_html=True,
         )
 
+        # Simple logout
         if st.button("🚪 Log out", use_container_width=True):
             st.session_state["authentication_status"] = None
             st.session_state["username"] = None
@@ -321,7 +345,7 @@ def run_streamlit_app():
     if show_settings:
         st.markdown("---")
         st.subheader("⚙️ Settings")
-
+        
         col_close, _ = st.columns([0.1, 1])
         with col_close:
             if st.button("✖"):
@@ -361,7 +385,7 @@ def run_streamlit_app():
             with st.spinner("🔍 Analyzing legal documents..."):
                 result = answer_question(query)
                 answer = result.get("answer", "")
-            placeholder.markdown(answer + "\n\n📚 *Powered by LegalRAG Pipeline*")
+            placeholder.markdown(answer + "\\n\\n📚 *Powered by LegalRAG Pipeline*")
 
         st.session_state["messages"].append({"role": "assistant", "content": answer})
 
