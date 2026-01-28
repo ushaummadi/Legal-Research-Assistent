@@ -13,24 +13,31 @@ import yaml
 from yaml.loader import SafeLoader
 from streamlit_authenticator.utilities.hasher import Hasher
 
-# ✅ Ensure relative files load correctly on Streamlit Cloud
+# --------------------------------------------------------------------
+# 1. SETUP PATHS (Absolute, for Streamlit Cloud stability)
+# --------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 UPLOADS_DIR = DATA_DIR / "uploads"
 CHROMA_DIR = DATA_DIR / "chroma_db"
 CONFIG_PATH = BASE_DIR / "config.yaml"
 HISTORY_FILE = BASE_DIR / "chat_history.json"
-# ✅ Ensure imports work when app runs from repo root
+
+# Ensure imports work when app runs from repo root
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-# ✅ Project imports
+# --------------------------------------------------------------------
+# 2. IMPORTS (After path setup)
+# --------------------------------------------------------------------
 from src.ingestion.document_processor import load_documents, split_documents
 from src.ingestion.vector_store import VectorStoreManager
 from src.generation.rag_pipeline import answer_question
 
 
-# --- HELPER FUNCTIONS ---
+# --------------------------------------------------------------------
+# 3. HELPER FUNCTIONS
+# --------------------------------------------------------------------
 def load_all_history():
     if HISTORY_FILE.exists():
         try:
@@ -60,7 +67,9 @@ def save_config(config):
         yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
 
-# --- MAIN APP ---
+# --------------------------------------------------------------------
+# 4. MAIN APP
+# --------------------------------------------------------------------
 def run_streamlit_app():
     st.set_page_config(
         page_title="LegalGPT - Evidence Act RAG",
@@ -78,7 +87,9 @@ def run_streamlit_app():
 
     config.setdefault("credentials", {}).setdefault("usernames", {})
 
-    # ✅ SINGLE BOX AUTH: Login + Signup tabs
+    # ----------------------------------------------------------------
+    # AUTHENTICATION
+    # ----------------------------------------------------------------
     st.session_state.setdefault("authentication_status", None)
     st.session_state.setdefault("username", None)
     st.session_state.setdefault("name", None)
@@ -135,93 +146,37 @@ def run_streamlit_app():
 
         st.stop()
 
+    # ----------------------------------------------------------------
+    # APP LOGIC (Post-Auth)
+    # ----------------------------------------------------------------
     name = st.session_state["name"]
-    username = st.session_state["username"]
-    authentication_status = st.session_state["authentication_status"]
 
+    # --- CSS STYLING ---
     st.markdown(
         """
         <style>
-        html, body, #root, .stApp,
-        header[data-testid="stHeader"], 
-        footer[data-testid="stFooter"],
-        section[data-testid="stAppViewContainer"],
-        section[data-testid="stChatInputContainer"],
-        .stApp > div > div > div[class*="main"],
-        .block-container,
-        [data-testid="stSidebar"] {
+        html, body, #root, .stApp, header[data-testid="stHeader"], footer[data-testid="stFooter"],
+        section[data-testid="stAppViewContainer"], section[data-testid="stChatInputContainer"],
+        .stApp > div > div > div[class*="main"], .block-container, [data-testid="stSidebar"] {
             background-color: #171717 !important;
         }
-        
-        [data-testid="stSidebar"] .stTabs [data-baseweb="tab-list"] {
-            background-color: #212121 !important;
-        }
-        [data-testid="stSidebar"] .stTabs [data-baseweb="tab"] {
-            background-color: transparent !important;
-            color: #ececf1 !important;
-        }
-        
-        .stChatInput > div > div {
-            background-color: transparent !important;
-        }
-        
-        .stChatMessage, [data-testid="stChatMessage"] {
-            background-color: transparent !important;
-        }
-        
-        [data-testid="metric-container"], 
-        [data-testid="stHorizontalBlock"],
-        section[data-testid="stSidebar"] div.element-container {
-            background-color: #171717 !important;
-        }
-
-        .stTextInput > div > div > div {
-            background-color: #212121 !important;
-        }
-        .stButton > button {
-            background-color: #212121 !important;
-            color: #ececf1 !important;
-        }
-        * {
-            border-color: #303030 !important;
-        }
-
+        [data-testid="stSidebar"] .stTabs [data-baseweb="tab-list"] { background-color: #212121 !important; }
+        [data-testid="stSidebar"] .stTabs [data-baseweb="tab"] { background-color: transparent !important; color: #ececf1 !important; }
+        .stChatInput > div > div { background-color: transparent !important; }
+        .stChatMessage, [data-testid="stChatMessage"] { background-color: transparent !important; }
+        [data-testid="metric-container"], [data-testid="stHorizontalBlock"],
+        section[data-testid="stSidebar"] div.element-container { background-color: #171717 !important; }
+        .stTextInput > div > div > div { background-color: #212121 !important; }
+        .stButton > button { background-color: #212121 !important; color: #ececf1 !important; }
+        * { border-color: #303030 !important; }
         section[data-testid="stSidebar"] .block-container{ padding-top: 0.6rem; }
         [data-testid="stSidebar"] div.stButton{ margin-bottom: 0.12rem !important; }
         [data-testid="stSidebar"] [data-testid="column"]{ padding-left: 0.05rem !important; padding-right: 0.05rem !important; }
-
-        [data-testid="stSidebar"] button[kind="tertiary"]{
-          background: transparent !important;
-          border: none !important;
-          box-shadow: none !important;
-          color: #ececf1 !important;
-          border-radius: 10px !important;
-        }
-        [data-testid="stSidebar"] button[kind="tertiary"]:hover{
-          background: #2a2a2a !important;
-          color: #fff !important;
-        }
-
-        [data-testid="stSidebar"] button[kind="secondary"]{
-          background: #353545 !important;
-          border: none !important;
-          box-shadow: none !important;
-          color: #ffffff !important;
-          border-radius: 10px !important;
-        }
-
-        [data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div:first-child button[kind="secondary"]{
-          border-top-right-radius: 0px !important;
-          border-bottom-right-radius: 0px !important;
-        }
-        [data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div:last-child button[kind="secondary"]{
-          border-top-left-radius: 0px !important;
-          border-bottom-left-radius: 0px !important;
-          width: 38px !important;
-          min-width: 38px !important;
-          padding: 0px !important;
-          font-weight: 900 !important;
-        }
+        [data-testid="stSidebar"] button[kind="tertiary"]{ background: transparent !important; border: none !important; border-radius: 10px !important; color: #ececf1 !important; }
+        [data-testid="stSidebar"] button[kind="tertiary"]:hover{ background: #2a2a2a !important; color: #fff !important; }
+        [data-testid="stSidebar"] button[kind="secondary"]{ background: #353545 !important; border: none !important; border-radius: 10px !important; color: #ffffff !important; }
+        [data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div:first-child button[kind="secondary"]{ border-top-right-radius: 0px !important; border-bottom-right-radius: 0px !important; }
+        [data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div:last-child button[kind="secondary"]{ border-top-left-radius: 0px !important; border-bottom-left-radius: 0px !important; width: 38px !important; min-width: 38px !important; padding: 0px !important; font-weight: 900 !important; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -232,7 +187,6 @@ def run_streamlit_app():
         st.session_state["session_id"] = str(uuid.uuid4())
         st.session_state["messages"] = []
 
-    # Load history
     all_history = load_all_history()
     cur_sid = st.session_state["session_id"]
     if cur_sid not in all_history:
@@ -242,11 +196,21 @@ def run_streamlit_app():
     qp = st.query_params
     show_settings = (qp.get("menu") == "settings")
 
-    # SIDEBAR (post-auth)
+    # ----------------------------------------------------------------
+    # SIDEBAR
+    # ----------------------------------------------------------------
     with st.sidebar:
-        st.caption("Debug")
-        st.write("Uploads exists:", UPLOADS_DIR.exists())
-        st.write([p.name for p in UPLOADS_DIR.glob("*")][:10])
+        # Debug info to verify Cloud paths
+        st.caption("Debug Info")
+        if UPLOADS_DIR.exists():
+            files = list(UPLOADS_DIR.glob("*"))
+            st.write(f"📂 Uploads ({len(files)} files)")
+            # st.write([f.name for f in files[:5]])  # uncomment if needed
+        else:
+            st.error(f"❌ Uploads dir missing: {UPLOADS_DIR}")
+        
+        st.write(f"🗄️ Chroma DB: {CHROMA_DIR.exists()}")
+
         if st.button("➕ New chat", use_container_width=True, type="secondary"):
             current_sid = st.session_state.get("session_id")
             current_msgs = st.session_state.get("messages", [])
@@ -262,6 +226,7 @@ def run_streamlit_app():
 
         st.caption("Your chats")
 
+        # Chat history list
         for sid in list(all_history.keys())[::-1]:
             msgs = all_history[sid]
             if not msgs:
@@ -270,7 +235,6 @@ def run_streamlit_app():
             title = get_chat_title(msgs)
             is_selected = (sid == st.session_state["session_id"])
 
-            # ✅ FIX HERE: gap="xxsmall" -> gap="small"
             c1, c2 = st.columns([1, 0.14], gap="small", vertical_alignment="center")
 
             with c1:
@@ -327,10 +291,13 @@ def run_streamlit_app():
             st.session_state["name"] = None
             st.rerun()
 
+    # ----------------------------------------------------------------
     # MAIN CONTENT
+    # ----------------------------------------------------------------
     st.title("⚖️ LegalGPT")
     st.caption("Indian Evidence Act • Production RAG System")
 
+    # SETTINGS (Rebuild Index)
     if show_settings:
         st.markdown("---")
         st.subheader("⚙️ Settings")
@@ -343,12 +310,25 @@ def run_streamlit_app():
 
         if st.button("🔄 Rebuild Index", use_container_width=True):
             with st.spinner("🔄 Re-indexing..."):
-                docs = load_documents()
+                # ✅ 1. Load from explicit folder
+                docs = load_documents(UPLOADS_DIR)
+                
                 if docs:
+                    # ✅ 2. Index to explicit Chroma folder
                     chunks = split_documents(docs)
-                    vsm = VectorStoreManager()
+                    
+                    # Ensure your VectorStoreManager accepts persist_dir argument!
+                    # If not, update src/ingestion/vector_store.py to accept it.
+                    try:
+                        vsm = VectorStoreManager(persist_dir=str(CHROMA_DIR))
+                    except TypeError:
+                        # Fallback if your class doesn't accept arg yet
+                        vsm = VectorStoreManager()
+                        
                     vsm.add_documents(chunks)
-                    st.success(f"✅ Indexed {len(chunks)} chunks.")
+                    st.success(f"✅ Indexed {len(chunks)} chunks from {len(docs)} documents.")
+                else:
+                    st.error(f"❌ No documents found in {UPLOADS_DIR}")
 
         if st.button("🗑️ Clear History", use_container_width=True):
             save_all_history({})
@@ -360,6 +340,7 @@ def run_streamlit_app():
 
         st.markdown("---")
 
+    # CHAT UI
     for msg in st.session_state["messages"]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
@@ -372,6 +353,9 @@ def run_streamlit_app():
         with st.chat_message("assistant"):
             placeholder = st.empty()
             with st.spinner("🔍 Analyzing legal documents..."):
+                # ✅ Pass paths implicitly or update rag_pipeline if needed.
+                # Usually rag_pipeline reads from settings/default path.
+                # Ensure src/ingestion/vector_store.py uses CHROMA_DIR by default.
                 result = answer_question(query)
                 answer = result.get("answer", "")
             placeholder.markdown(answer + "\n\n📚 *Powered by LegalRAG Pipeline*")
