@@ -15,6 +15,9 @@ from streamlit_authenticator.utilities.hasher import Hasher
 
 # ✅ Ensure relative files load correctly on Streamlit Cloud
 BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
+UPLOADS_DIR = DATA_DIR / "uploads"
+CHROMA_DIR = DATA_DIR / "chroma_db"
 CONFIG_PATH = BASE_DIR / "config.yaml"
 HISTORY_FILE = BASE_DIR / "chat_history.json"
 
