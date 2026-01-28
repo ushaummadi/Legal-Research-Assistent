@@ -1,13 +1,16 @@
 import streamlit as st
 import json
 import uuid
-from pathlib import Path
 import yaml
 from yaml.loader import SafeLoader
 import streamlit_authenticator as stauth
 from streamlit_authenticator.utilities.hasher import Hasher
 import traceback
+import sys
+from pathlib import Path
 
+ROOT_DIR = Path(__file__).resolve().parents[2]  # Legal-Rag-Assistent-/
+sys.path.insert(0, str(ROOT_DIR))
 # --- STANDARD LANGCHAIN IMPORTS ---
 from config.settings import settings
 from src.ingestion.document_processor import load_documents, split_documents
