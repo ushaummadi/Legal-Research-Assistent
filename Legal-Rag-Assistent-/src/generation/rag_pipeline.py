@@ -77,8 +77,15 @@ def answer_question(question: str, chroma_dir: str = "./data/chroma_db") -> dict
         results = vsm.collection.query(
             query_texts=[question],
             n_results=5
+            include=["documents", "metadatas", "distances"]
         )
-        
+    if len(results['documents'][0]) == 0:
+    # Fallback keyword-like
+        results = vsm.collection.query(
+            query_texts=[question],
+            n_results=10,
+            fetch_k=20  # Wider fetch
+        )    
         # Convert to Documents
         docs = []
         if results['documents'] and results['documents'][0]:
