@@ -4,8 +4,6 @@ __pycache__/
 venv/
 
 # Vector databases (DO NOT COMMIT)
-data/chroma_db/
-data/chroma.db/
 *.sqlite3
 
 # Large data / PDFs
