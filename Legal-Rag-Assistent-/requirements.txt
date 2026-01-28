@@ -1,38 +1,20 @@
-# ---------------- UI ----------------
 streamlit==1.38.0
 streamlit-authenticator==0.3.2
 python-dotenv==1.0.1
 loguru
-
-# ---------------- Core ----------------
 pydantic==2.5.0
 pydantic-settings==2.0.0
-# ---------------- LangChain (OLD STABLE STACK) ----------------
 langchain==0.1.16
 langchain-core==0.1.53
 langchain-community==0.0.38
 langchain-chroma==0.1.4
-
-# ---------------- Vector DB ----------------
 chromadb==0.4.24
-
-# ---------------- Embeddings (HuggingFace API) ----------------
 huggingface-hub==0.23.5
 sentence-transformers==3.0.1
-
-# ---------------- Gemini (COMPATIBLE VERSION) ----------------
-langchain-google-genai==1.0.6
-google-generativeai==0.5.4
-
-# ---------------- Documents ----------------
 pypdf==5.1.0
-
-# ---------------- Optional ----------------
 pandas==2.2.2
 datasets==2.21.0
 ragas==0.1.9
-
-# ---------------- CRITICAL: NumPy 2.0 FIX ----------------
 numpy<2.0.0
 tiktoken==0.6.0
 langchain==0.1.16
