@@ -1,28 +1,33 @@
-
 """
 LegalRAG: Indian Evidence Act RAG Assistant
 Full-Stack Streamlit + Chroma + HuggingFace (2026)
 """
 import sys
-from pathlib import Path
-
-import streamlit as st
+import os
 import json
 import uuid
 from pathlib import Path
+
+import streamlit as st
 import yaml
 from yaml.loader import SafeLoader
 from streamlit_authenticator.utilities.hasher import Hasher
 
-# ✅ FIXED IMPORTS (LangChain v1+ 2026)
-from config.settings import settings
+# -------------------------
+# PATH FIX (IMPORTANT)
+# -------------------------
+BASE_DIR = Path(__file__).resolve().parent  # directory containing this file
+CONFIG_PATH = BASE_DIR / "config.yaml"
+HISTORY_FILE = BASE_DIR / "chat_history.json"
+
+# Ensure imports work when app is in a subfolder
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+# ✅ Your project imports
 from src.ingestion.document_processor import load_documents, split_documents
 from src.ingestion.vector_store import VectorStoreManager
 from src.generation.rag_pipeline import answer_question
-
-# --- PATHS ---
-CONFIG_PATH = Path("config.yaml")
-HISTORY_FILE = Path("chat_history.json")
 
 
 # --- HELPER FUNCTIONS ---
@@ -63,6 +68,13 @@ def run_streamlit_app():
         layout="wide",
         initial_sidebar_state="expanded",
     )
+
+    # Optional debug (uncomment if needed)
+    # st.write("CWD:", os.getcwd())
+    # st.write("BASE_DIR:", str(BASE_DIR))
+    # st.write("Files in BASE_DIR:", os.listdir(BASE_DIR))
+    # st.write("CONFIG_PATH:", str(CONFIG_PATH))
+    # st.write("config exists:", CONFIG_PATH.exists())
 
     if not CONFIG_PATH.exists():
         st.error("❌ config.yaml not found!")
@@ -131,10 +143,8 @@ def run_streamlit_app():
         st.stop()
 
     name = st.session_state["name"]
-    username = st.session_state["username"]
-    authentication_status = st.session_state["authentication_status"]
 
-    # ✅ TOTAL #171717 EVERYWHERE
+    # THEME/CSS
     st.markdown(
         """
         <style>
@@ -342,7 +352,7 @@ def run_streamlit_app():
     if show_settings:
         st.markdown("---")
         st.subheader("⚙️ Settings")
-        
+
         col_close, _ = st.columns([0.1, 1])
         with col_close:
             if st.button("✖"):
