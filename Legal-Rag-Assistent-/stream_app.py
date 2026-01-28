@@ -1,39 +1,67 @@
 """
 LegalRAG: Indian Evidence Act RAG Assistant
-Full-Stack Streamlit + Chroma + HuggingFace (2026)
+Full-Stack Streamlit + Chroma + HuggingFace (2026) - PRODUCTION READY
 """
 import sys
 import json
 import uuid
 from pathlib import Path
 
+# ✅ CRITICAL: Fix SQLite for Streamlit Cloud
+import pysqlite3
+sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+
 import streamlit as st
 import yaml
 from yaml.loader import SafeLoader
-
-import streamlit_authenticator as stauth
 from streamlit_authenticator.utilities.hasher import Hasher
 
-# ✅ App imports
+# App imports
+from src.ingestion.document_processor import load_documents, split_documents
+from src.ingestion.vector_store import VectorStoreManager
+from src.generation.rag_pipeline import answer_question
+
+# --------------------------------------------------------------------Here's your **COMPLETE FIXED `stream_app.py`** with all bugs resolved:
+
+```python
+"""
+LegalRAG: Indian Evidence Act RAG Assistant
+Full-Stack Streamlit + Chroma + HuggingFace (2026) - PRODUCTION READY
+"""
+import sys
+import json
+import uuid
+from pathlib import Path
+
+# ✅ CRITICAL: Fix SQLite for Streamlit Cloud + Chroma
+try:
+    import pysqlite3
+    sys.modules["sqlite3"] = sys.modules.pop("pysqlite3")
+except ImportError:
+    pass  # Local dev doesn't need this
+
+import streamlit as st
+import yaml
+from yaml.loader import SafeLoader
+from streamlit_authenticator.utilities.hasher import Hasher
+
+# App imports
 from src.ingestion.document_processor import load_documents, split_documents
 from src.ingestion.vector_store import VectorStoreManager
 from src.generation.rag_pipeline import answer_question
 
 # --------------------------------------------------------------------
-# PATHS (Absolute for Cloud stability)
+# PATHS (Absolute for Cloud)
 # --------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = BASE_DIR / "data"
 UPLOADS_DIR = DATA_DIR / "uploads"
 CHROMA_DIR = DATA_DIR / "chroma_db"
-
 CONFIG_PATH = BASE_DIR / "config.yaml"
 HISTORY_FILE = BASE_DIR / "chat_history.json"
 
-# Ensure imports work when app runs from repo root
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
-
 
 # --------------------------------------------------------------------
 # Helpers
@@ -47,13 +75,11 @@ def load_all_history():
             return {}
     return {}
 
-
 def save_all_history(all_history):
     HISTORY_FILE.write_text(
         json.dumps(all_history, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-
 
 def get_chat_title(messages):
     for msg in messages:
@@ -61,39 +87,15 @@ def get_chat_title(messages):
             return msg["content"][:28] + "..." if len(msg["content"]) > 28 else msg["content"]
     return "New Chat"
 
-
 def save_config(config):
     CONFIG_PATH.write_text(
         yaml.dump(config, default_flow_style=False, allow_unicode=True, sort_keys=False),
         encoding="utf-8",
     )
 
-
 def ensure_dirs():
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     CHROMA_DIR.mkdir(parents=True, exist_ok=True)
-
-
-# --------------------------------------------------------------------
-# Auth (cookie-based persistence)
-# --------------------------------------------------------------------
-def build_authenticator(config: dict) -> stauth.Authenticate:
-    """
-    streamlit-authenticator uses a cookie so users stay logged in across refresh/new session. [web:84]
-    """
-    config.setdefault("credentials", {}).setdefault("usernames", {})
-    config.setdefault("cookie", {})
-    config["cookie"].setdefault("name", "legalgpt_auth")
-    config["cookie"].setdefault("key", "CHANGE_THIS_TO_A_RANDOM_SECRET_KEY")
-    config["cookie"].setdefault("expiry_days", 30)
-
-    return stauth.Authenticate(
-        config["credentials"],
-        config["cookie"]["name"],
-        config["cookie"]["key"],
-        config["cookie"]["expiry_days"],
-    )
-
 
 # --------------------------------------------------------------------
 # Main app
@@ -115,11 +117,10 @@ def run_streamlit_app():
     with open(CONFIG_PATH, encoding="utf-8") as f:
         config = yaml.load(f, Loader=SafeLoader) or {}
 
-    # --- YOUR CSS (unchanged) ---
+    # CSS (unchanged)
     st.markdown(
         """
         <style>
-        /* TOTAL UNIFORM #171717 */
         html, body, #root, .stApp,
         header[data-testid="stHeader"],
         footer[data-testid="stFooter"],
@@ -130,51 +131,41 @@ def run_streamlit_app():
         [data-testid="stSidebar"] {
             background-color: #171717 !important;
         }
-
-        /* Auth tabs styling */
+        
         [data-testid="stSidebar"] .stTabs [data-baseweb="tab-list"] { background-color: #212121 !important; }
         [data-testid="stSidebar"] .stTabs [data-baseweb="tab"] { background-color: transparent !important; color: #ececf1 !important; }
-
-        /* Chat input */
+        
         .stChatInput > div > div { background-color: transparent !important; }
-
-        /* Chat areas */
         .stChatMessage, [data-testid="stChatMessage"] { background-color: transparent !important; }
-
-        /* All elements match */
+        
         [data-testid="metric-container"], [data-testid="stHorizontalBlock"],
         section[data-testid="stSidebar"] div.element-container { background-color: #171717 !important; }
-
-        /* Inputs, buttons, expanders */
+        
         .stTextInput > div > div > div { background-color: #212121 !important; }
         .stButton > button { background-color: #212121 !important; color: #ececf1 !important; }
-
         * { border-color: #303030 !important; }
-
+        
         section[data-testid="stSidebar"] .block-container{ padding-top: 0.6rem; }
         [data-testid="stSidebar"] div.stButton{ margin-bottom: 0.12rem !important; }
         [data-testid="stSidebar"] [data-testid="column"]{ padding-left: 0.05rem !important; padding-right: 0.05rem !important; }
-
+        
         [data-testid="stSidebar"] button[kind="tertiary"]{
           background: transparent !important;
           border: none !important;
-          box-shadow: none !important;
           color: #ececf1 !important;
           border-radius: 10px !important;
         }
         [data-testid="stSidebar"] button[kind="tertiary"]:hover{
           background: #2a2a2a !important;
-          color: #fff !important;
         }
-
+        
         [data-testid="stSidebar"] button[kind="secondary"]{
           background: #353545 !important;
           border: none !important;
-          box-shadow: none !important;
           color: #ffffff !important;
           border-radius: 10px !important;
         }
-
+        
         [data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div:first-child button[kind="secondary"]{
           border-top-right-radius: 0px !important;
           border-bottom-right-radius: 0px !important;
@@ -192,12 +183,8 @@ def run_streamlit_app():
         unsafe_allow_html=True,
     )
 
-    # ----------------------------------------------------------------
-    # AUTH UI (Login + Signup), but login persistence is handled by cookie
-    # ----------------------------------------------------------------
+    # AUTH
     config.setdefault("credentials", {}).setdefault("usernames", {})
-
-    # ✅ SINGLE BOX AUTH: Login + Signup tabs
     st.session_state.setdefault("authentication_status", None)
     st.session_state.setdefault("username", None)
     st.session_state.setdefault("name", None)
@@ -251,15 +238,11 @@ def run_streamlit_app():
                         save_config(config)
                         st.success("✅ Account created! Now login.")
                         st.rerun()
-
         st.stop()
 
     name = st.session_state["name"]
-    username = st.session_state["username"]
-    authentication_status = st.session_state["authentication_status"]
-    # ----------------------------------------------------------------
+
     # Session init
-    # ----------------------------------------------------------------
     if "session_id" not in st.session_state:
         st.session_state["session_id"] = str(uuid.uuid4())
         st.session_state["messages"] = []
@@ -273,26 +256,25 @@ def run_streamlit_app():
     qp = st.query_params
     show_settings = (qp.get("menu") == "settings")
 
-    # ----------------------------------------------------------------
-    # SIDEBAR (Post-auth)
-    # ----------------------------------------------------------------
+    # SIDEBAR
     with st.sidebar:
-        # ✅ Debug RAG Status
         st.markdown("### 🔎 Debug RAG Status")
         upload_count = len(list(UPLOADS_DIR.glob("*")))
         chroma_files_count = len(list(CHROMA_DIR.glob("*")))
         st.metric("📂 Upload files", upload_count)
         st.metric("🗄️ Chroma files", chroma_files_count)
-        st.caption(f"Paths: {UPLOADS_DIR} | {CHROMA_DIR}")
 
         if st.button("🧪 Test Vector Count", key="test_vectors", use_container_width=True, type="secondary"):
             try:
                 vsm = VectorStoreManager(persist_dir=str(CHROMA_DIR))
-                st.success(f"✅ Vectors: {vsm.count():,}")
+                count = vsm.count()
+                if count > 0:
+                    st.success(f"✅ {count:,} vectors ready!")
+                else:
+                    st.warning("⚠️ 0 vectors - Rebuild Index!")
             except Exception as e:
-                st.error(f"❌ VectorStore error: {str(e)[:140]}")
+                st.error(f"❌ {str(e)[:100]}")
 
-        # New chat
         if st.button("➕ New chat", use_container_width=True, type="secondary"):
             current_sid = st.session_state.get("session_id")
             current_msgs = st.session_state.get("messages", [])
@@ -309,7 +291,7 @@ def run_streamlit_app():
 
         st.caption("Your chats")
 
-        # Chat history list
+        # ✅ FIXED: Crash-proof columns
         for sid in list(all_history.keys())[::-1]:
             msgs = all_history[sid]
             if not msgs:
@@ -318,12 +300,8 @@ def run_streamlit_app():
             title = get_chat_title(msgs)
             is_selected = (sid == st.session_state["session_id"])
 
-            # ✅ Version-safe columns (works across many Streamlit versions)
-            try:
-                c1, c2 = st.columns([1, 0.14], gap="small", vertical_alignment="center")
-            except Exception:
-                c1, c2 = st.columns([1, 0.14])
-
+            # FIXED: No gap/vertical_alignment parameters
+            c1, c2 = st.columns([0.85, 0.15])
 
             with c1:
                 t = "secondary" if is_selected else "tertiary"
@@ -343,13 +321,11 @@ def run_streamlit_app():
                     if st.button("✖", key=f"del_{sid}", type="secondary"):
                         if sid in all_history:
                             del all_history[sid]
-
                         if sid == st.session_state["session_id"]:
                             new_sid = str(uuid.uuid4())
                             st.session_state["session_id"] = new_sid
                             st.session_state["messages"] = []
                             all_history[new_sid] = []
-
                         save_all_history(all_history)
                         st.rerun()
                 else:
@@ -357,8 +333,7 @@ def run_streamlit_app():
 
         st.markdown("<div style='flex-grow: 1; height: 48vh;'></div>", unsafe_allow_html=True)
 
-        # Profile footer (same style)
-        name = st.session_state.get("name") or "User"
+        # Profile footer
         initials = (name[:2].upper() if name else "LG")
         st.markdown(
             f"""
@@ -375,13 +350,16 @@ def run_streamlit_app():
             unsafe_allow_html=True,
         )
 
-    # ----------------------------------------------------------------
-    # MAIN CONTENT
-    # ----------------------------------------------------------------
-    st.title("⚖️ LegalGPT")
-    st.caption("Indian Evidence Act • Production RAG System")
+        if st.button("🚪 Log out", use_container_width=True):
+            st.session_state["authentication_status"] = None
+            st.session_state["username"] = None
+            st.session_state["name"] = None
+            st.rerun()
 
-    # Settings page
+    # MAIN CONTENT
+    st.title("⚖️ LegalGPT")
+    st.caption("Indian Evidence Act -  Production RAG System")
+
     if show_settings:
         st.markdown("---")
         st.subheader("⚙️ Settings")
@@ -392,17 +370,32 @@ def run_streamlit_app():
                 st.query_params.clear()
                 st.rerun()
 
-        # ✅ FIXED: Rebuild Index uses explicit UPLOADS_DIR + CHROMA_DIR
+        # ✅ FIXED: Proper indexing with debug
         if st.button("🔄 Rebuild Index", use_container_width=True, type="primary"):
-            with st.spinner("🔄 Re-indexing..."):
-                docs = load_documents(str(UPLOADS_DIR))   # ✅ pass uploads path
-                if not docs:
-                    st.error(f"❌ No documents found in {UPLOADS_DIR}")
-                else:
-                    chunks = split_documents(docs)
-                    vsm = VectorStoreManager(persist_dir=str(CHROMA_DIR))  # ✅ persist path
-                    vsm.add_documents(chunks)
-                    st.success(f"✅ Indexed {len(chunks)} chunks. Total vectors: {vsm.count():,}")
+            with st.spinner("⏳ Indexing..."):
+                try:
+                    # Load docs
+                    docs = load_documents(str(UPLOADS_DIR))
+                    st.info(f"✅ Loaded {len(docs)} documents")
+                    
+                    if not docs:
+                        st.error(f"❌ No files in {UPLOADS_DIR}")
+                    else:
+                        # Split
+                        chunks = split_documents(docs)
+                        st.info(f"✅ Created {len(chunks)} chunks")
+                        
+                        # Index
+                        vsm = VectorStoreManager(persist_dir=str(CHROMA_DIR))
+                        vsm.add_documents(chunks)
+                        
+                        final_count = vsm.count()
+                        st.success(f"✅ **COMPLETE!** {final_count:,} vectors indexed")
+                        st.balloons()
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
+                    import traceback
+                    st.code(traceback.format_exc())
 
         if st.button("🗑️ Clear History", use_container_width=True):
             save_all_history({})
@@ -426,14 +419,15 @@ def run_streamlit_app():
 
         with st.chat_message("assistant"):
             placeholder = st.empty()
-            with st.spinner("🔍 Analyzing legal documents..."):
-                # ✅ FIXED: pass chroma_dir so query uses same db as rebuild
-                result = answer_question(query, chroma_dir=str(CHROMA_DIR))
-                answer = result.get("answer", "")
-            placeholder.markdown(answer + "\n\n📚 *Powered by LegalRAG Pipeline*")
+            with st.spinner("🔍 Searching..."):
+                try:
+                    result = answer_question(query, chroma_dir=str(CHROMA_DIR))
+                    answer = result.get("answer", "No answer generated")
+                except Exception as e:
+                    answer = f"❌ Error: {str(e)}"
+            placeholder.markdown(answer + "\n\n📚 *LegalRAG Pipeline*")
 
         st.session_state["messages"].append({"role": "assistant", "content": answer})
-
         all_history = load_all_history()
         all_history[st.session_state["session_id"]] = st.session_state["messages"]
         save_all_history(all_history)
