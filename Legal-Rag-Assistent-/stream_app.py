@@ -35,10 +35,10 @@ if str(BASE_DIR) not in sys.path:
 
 os.environ["OTEL_PYTHON_DISABLED"] = "true"
 os.environ.setdefault("CHROMA_PERSIST_DIRECTORY", str(CHROMA_DIR))
-os.environ.setdefault("DOCS_DIR", str(UPLOADS_DIR))      # point to uploads
+os.environ.setdefault("DOCS_DIR", str(UPLOADS_DIR))
 os.environ.setdefault("UPLOADS_DIR", str(UPLOADS_DIR))
 
-# ✅ App imports (after paths)
+# ✅ App imports
 from config.settings import settings
 from src.ingestion.document_processor import load_documents, split_documents
 from src.ingestion.vector_store import VectorStoreManager
@@ -82,7 +82,6 @@ def list_source_files():
     return sorted(set(files))
 
 def load_docs_for_index():
-    # Prefer uploads folder, fallback to data/
     docs = load_documents(str(UPLOADS_DIR))
     if not docs:
         docs = load_documents(str(DATA_DIR))
@@ -111,7 +110,7 @@ def run_streamlit_app():
     config.setdefault("cookie", {})
 
     # ----------------------------
-    # ✅ AUTH
+    # ✅ AUTHENTICATION
     # ----------------------------
     cookie_name = config["cookie"].get("name", "legalgpt_auth")
     cookie_expiry_days = float(config["cookie"].get("expiry_days", 30))
@@ -132,73 +131,64 @@ def run_streamlit_app():
         cookie_expiry_days=cookie_expiry_days,
     )
 
-    try:
-        name, authentication_status, username = authenticator.login(location="sidebar")
-    except Exception:
-        authentication_status = None
+    # Initialize Session State for Auth
+    if "authentication_status" not in st.session_state:
+        st.session_state["authentication_status"] = None
 
-    if authentication_status is not True:
+    # 🛑 LOGIN LOGIC: Render form ONLY if not authenticated
+    if not st.session_state["authentication_status"]:
         st.sidebar.markdown("---")
         with st.sidebar.expander("👤 Account", expanded=True):
             tab_login, tab_signup = st.tabs(["Login", "Sign up"])
 
             with tab_login:
+                # SINGLE CALL to login widget
                 name, authentication_status, username = authenticator.login(
-                    location="sidebar",
+                    location="main", 
                     fields={"Form name": "Login"}
                 )
-
-                if authentication_status is False:
-                    st.error("❌ Wrong credentials")
-                    st.stop()
-                if authentication_status is None:
-                    st.info("Please login to continue.")
-                    st.stop()
 
             with tab_signup:
                 with st.form("signup_form", clear_on_submit=True):
                     new_fullname = st.text_input("Full Name")
-                    new_email = st.text_input("Email")
                     new_user = st.text_input("Username")
                     new_pass = st.text_input("Password", type="password")
                     new_pass2 = st.text_input("Confirm Password", type="password")
-                    signup_ok = st.form_submit_button("Create Account")
+                    if st.form_submit_button("Create Account"):
+                        if new_pass != new_pass2:
+                            st.error("Passwords don't match!")
+                        elif new_user in config["credentials"]["usernames"]:
+                            st.error("Username exists!")
+                        else:
+                            hashed = Hasher.hash(new_pass)
+                            config["credentials"]["usernames"][new_user] = {
+                                "name": new_fullname, "password": hashed
+                            }
+                            save_config(config)
+                            st.success("✅ Account created! Please login.")
+                            st.rerun()
+        
+        # Stop here if login failed or pending
+        if not authentication_status:
+            st.stop()
+    else:
+        # Restore session data if already logged in
+        name = st.session_state.get("name")
+        username = st.session_state.get("username")
+        authentication_status = True
 
-                if signup_ok:
-                    if not all([new_fullname, new_email, new_user, new_pass, new_pass2]):
-                        st.error("All fields required!")
-                    elif new_pass != new_pass2:
-                        st.error("Passwords don't match!")
-                    elif new_user in config["credentials"]["usernames"]:
-                        st.error("Username exists!")
-                    else:
-                        hashed = Hasher.hash(new_pass)
-                        config["credentials"]["usernames"][new_user] = {
-                            "name": new_fullname,
-                            "email": new_email,
-                            "password": hashed,
-                        }
-                        save_config(config)
-                        st.success("✅ Account created! Now login.")
-                        st.rerun()
-        st.stop()
-
+    # ----------------------------
+    # APP LOGIC (Only runs after login)
+    # ----------------------------
     st.session_state["authentication_status"] = True
     st.session_state["username"] = username
     st.session_state["name"] = name
 
-    # Theme CSS
+    # CSS Styles
     st.markdown(
         """
         <style>
-        html, body, #root, .stApp,
-        header[data-testid="stHeader"],
-        footer[data-testid="stFooter"],
-        section[data-testid="stAppViewContainer"],
-        section[data-testid="stChatInputContainer"],
-        .stApp > div > div > div[class*="main"],
-        .block-container,
-        [data-testid="stSidebar"] { background-color: #171717 !important; }
+        html, body, #root, .stApp, [data-testid="stSidebar"] { background-color: #171717 !important; }
         .stTextInput > div > div > div { background-color: #212121 !important; }
         .stButton > button { background-color: #212121 !important; color: #ececf1 !important; }
         * { border-color: #303030 !important; }
@@ -207,63 +197,47 @@ def run_streamlit_app():
         unsafe_allow_html=True,
     )
 
-    # Session init
+    # Session ID Init
     if "session_id" not in st.session_state:
         st.session_state["session_id"] = str(uuid.uuid4())
         st.session_state["messages"] = []
-    
-    # Load history
+
+    # History Load
     all_history = load_all_history()
     cur_sid = st.session_state["session_id"]
     if cur_sid not in all_history:
         all_history[cur_sid] = st.session_state["messages"]
         save_all_history(all_history)
 
-    # ----------------------------
     # SIDEBAR
-    # ----------------------------
     with st.sidebar:
         if st.button("➕ New chat", use_container_width=True, type="secondary"):
-            current_sid = st.session_state.get("session_id")
-            current_msgs = st.session_state.get("messages", [])
-            if current_sid and current_msgs:
-                all_history[current_sid] = current_msgs
-                save_all_history(all_history)
-
-            new_sid = str(uuid.uuid4())
-            st.session_state["session_id"] = new_sid
+            st.session_state["session_id"] = str(uuid.uuid4())
             st.session_state["messages"] = []
-            all_history.setdefault(new_sid, [])
-            save_all_history(all_history)
             st.rerun()
 
         st.caption("Your chats")
         for sid in list(all_history.keys())[::-1]:
             msgs = all_history[sid]
             if not msgs: continue
-
             title = get_chat_title(msgs)
             is_selected = (sid == st.session_state["session_id"])
-            c1, c2 = st.columns([1, 0.14], gap="small")
+            c1, c2 = st.columns([1, 0.2])
             with c1:
-                t = "primary" if is_selected else "secondary"
-                if st.button(title, key=f"load_{sid}", use_container_width=True, type=t):
+                if st.button(title, key=f"load_{sid}", use_container_width=True, type=("primary" if is_selected else "secondary")):
                     st.session_state["session_id"] = sid
                     st.session_state["messages"] = msgs.copy()
                     st.rerun()
             with c2:
-                if is_selected and st.button("✖", key=f"del_{sid}", type="secondary"):
+                if is_selected and st.button("✖", key=f"del_{sid}"):
                     del all_history[sid]
-                    if sid == st.session_state["session_id"]:
-                        st.session_state["session_id"] = str(uuid.uuid4())
-                        st.session_state["messages"] = []
-                        all_history[st.session_state["session_id"]] = []
+                    st.session_state["session_id"] = str(uuid.uuid4())
+                    st.session_state["messages"] = []
                     save_all_history(all_history)
                     st.rerun()
-
-        st.markdown("<div style='flex-grow: 1; height: 48vh;'></div>", unsafe_allow_html=True)
         
-        # User Profile
+        st.markdown("<div style='flex-grow: 1; height: 50vh;'></div>", unsafe_allow_html=True)
+        # User Profile Footer
         initials = (name[:2].upper() if name else "LG")
         st.markdown(
             f"""
@@ -278,29 +252,25 @@ def run_streamlit_app():
         )
         authenticator.logout(" Log out", "sidebar")
 
-    # ----------------------------
-    # MAIN PAGE
-    # ----------------------------
+    # MAIN CONTENT
     st.title("⚖️ LegalGPT")
     st.caption("Indian Evidence Act • Production RAG System")
 
-    # ------------------------------------------------------------------
-    # 🚀 ADMIN TOOLS / REBUILD INDEX (Moved to Main Page)
-    # ------------------------------------------------------------------
+    # ---------------------------------------------------------
+    # 🛠️ ADMIN TOOLS / REBUILD INDEX
+    # ---------------------------------------------------------
     with st.expander("🛠️ **Admin Tools / Rebuild Index**", expanded=False):
         vsm = VectorStoreManager()
-        
-        col_stat, col_file = st.columns(2)
-        with col_stat:
+        col1, col2 = st.columns(2)
+        with col1:
             st.metric("📊 Vectors Indexed", vsm.count())
-        
-        with col_file:
-            st.write("**Found Files:**")
+        with col2:
+            st.caption("Available Files:")
             files = list_source_files()
             if files:
-                st.caption(", ".join(files[:3]) + "..." if len(files) > 3 else ", ".join(files))
+                st.code("\n".join(files[:5]) + ("..." if len(files)>5 else ""), language="text")
             else:
-                st.error("No files in data/uploads/")
+                st.error("❌ No files in data/uploads/")
 
         if st.button("🔄 **FORCE REBUILD INDEX NOW**", type="primary", use_container_width=True):
             with st.spinner("⏳ Indexing Evidence Act files..."):
@@ -312,17 +282,13 @@ def run_streamlit_app():
                     vsm.add_documents(chunks)
                     st.success(f"✅ Success! {len(chunks)} chunks indexed. New vector count: {vsm.count()}")
                     st.rerun()
-                    
-        st.info("Click 'Force Rebuild' if you see 'No documents indexed'.")
 
-    # ----------------------------
     # CHAT INTERFACE
-    # ----------------------------
     for msg in st.session_state["messages"]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    if query := st.chat_input("Ask about Evidence Act, CrPC, IPC..."):
+    if query := st.chat_input("Ask about Evidence Act (e.g., 'What is Section 32?')..."):
         st.session_state["messages"].append({"role": "user", "content": query})
         with st.chat_message("user"):
             st.markdown(query)
