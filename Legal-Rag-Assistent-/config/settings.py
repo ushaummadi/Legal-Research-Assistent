@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     hf_llm_model: str = Field(default="HuggingFaceH4/zephyr-7b-beta")
     
     # ChromaDB
+    DOCS_DIR: str = Field(default="./data")  # PDFs here: iea_1872.pdf
     chroma_persist_directory: str = Field(default="./data/chroma_db")
     chroma_collection_name: str = Field(default="legal_documents")
     
