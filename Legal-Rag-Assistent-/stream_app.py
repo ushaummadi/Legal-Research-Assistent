@@ -134,26 +134,25 @@ def run_streamlit_app():
 
     # IMPORTANT: silent cookie check (does NOT render form)
     # streamlit-authenticator supports location 'unrendered'. [web:234]
-    name, authentication_status, username = authenticator.login("unrendered")  # [web:234]
+    # 1. Check cookie first (silent)
+    try:
+        # 'unrendered' checks cookie without showing UI
+        name, authentication_status, username = authenticator.login(location="unrendered")
+    except Exception:
+        authentication_status = None
 
-    # If not logged in, show Login/Signup UI (same sidebar expander + tabs)
+    # 2. If not logged in, show UI
     if authentication_status is not True:
         st.sidebar.markdown("---")
         with st.sidebar.expander("👤 Account", expanded=True):
             tab_login, tab_signup = st.tabs(["Login", "Sign up"])
 
             with tab_login:
-                # NEW API: login(location, fields=...). Avoid deprecated form_name param. [web:235]
-                fields = {
-                    "Form name": "Login",
-                    "Username": "Username",
-                    "Password": "Password",
-                    "Login": "Login",
-                }
+                # NEW SYNTAX: location="sidebar" (no "Login" string first!)
                 name, authentication_status, username = authenticator.login(
-                    "sidebar",
-                    fields=fields,
-                )  # [web:235]
+                    location="sidebar",
+                    fields={"Form name": "Login"} # Optional label
+                )
 
                 if authentication_status is False:
                     st.error("❌ Wrong credentials")
@@ -161,6 +160,8 @@ def run_streamlit_app():
                 if authentication_status is None:
                     st.info("Please login to continue.")
                     st.stop()
+
+            # ... tab_signup remains same ...
 
             with tab_signup:
                 # Keep your SAME signup logic (writes into config.yaml)
