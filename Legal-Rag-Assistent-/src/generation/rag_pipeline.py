@@ -9,29 +9,39 @@ from src.providers.factory import ProviderFactory
 chat_history_store: List[Dict[str, str]] = []
 
 SYSTEM_RULES = """You are LegalGPT - Indian Evidence Act expert.
-⚠️ **STRICT RULE**: Answer ONLY from provided context. 
-
-- If NO relevant chunks found → "**No relevant sections found in indexed documents.**"
-- If chunks found → "**Section X**: [quote] [file:page(score)]"
-- NO explanations, NO guessing, NO general knowledge
-- NO "based on context" filler text
+⚠️ STRICT RULES:
+1. Answer ONLY using the provided CONTEXT.
+2. If the context provided below is empty or irrelevant, you MUST say exactly:
+   "**No relevant sections found in indexed documents.**"
+3. Do NOT make up answers. Do NOT use outside knowledge.
+4. Do NOT say "Based on the provided context" - just give the answer directly.
 
 Format:
-**Section X**: [exact quote]
-[file:page(score)]
-
-QUESTION: {question}
+**Section X**: [Exact Quote]
+[Source: File]
 """
 
 def format_context(docs: List[Document]) -> str:
-    """Format with source/chunk/score"""
+    """Format with score filtering"""
     parts = []
+    relevant_count = 0
+    
     for d in docs:
         meta = d.metadata
+        score = meta.get("score", 0)
+        
+        # 🛑 SCORE FILTER: Ignore weak matches (Adjust 4.0 as needed)
+        if score < 4.0:
+            continue
+            
+        relevant_count += 1
         src = meta.get("source", "unknown")
         chunk = meta.get("chunk", "?")
-        score = meta.get("score", 0)
         parts.append(f"[{src}:{chunk} | score:{score}] {d.page_content}")
+    
+    if relevant_count == 0:
+        return ""  # Return empty if nothing is good enough
+        
     return "\n\n".join(parts)
 
 def extract_section_number(question: str) -> str:
@@ -58,8 +68,21 @@ def answer_question(question: str) -> dict:
     llm = provider.llm()
 
     docs = retriever.get_relevant_documents(question)
+    
+    # Apply filtering inside format_context
     context = format_context(docs)
     
+    # 🛑 If context is empty after filtering, stop here.
+    if not context.strip():
+        fake_answer = "**No relevant sections found in indexed documents.** (Low similarity score)"
+        chat_history_store.append({"role": "user", "content": question})
+        chat_history_store.append({"role": "assistant", "content": fake_answer})
+        return {
+            "answer": fake_answer,
+            "sources": [],
+            "doc_count": 0
+        }
+
     prompt = f"""
 {SYSTEM_RULES}
 
@@ -82,7 +105,7 @@ ANSWER:"""
     
     return {
         "answer": answer_text,
-        "sources": [{"source": d.metadata.get("source"), "chunk": d.metadata.get("chunk"), "score": d.metadata.get("score", 0)} for d in docs],
+        "sources": [{"source": d.metadata.get("source"), "score": d.metadata.get("score", 0)} for d in docs],
         "doc_count": len(docs),
         "chat_history_len": len(chat_history_store) 
     }
