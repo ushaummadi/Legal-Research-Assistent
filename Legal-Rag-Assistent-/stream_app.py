@@ -111,7 +111,7 @@ def run_streamlit_app():
     config.setdefault("cookie", {})
 
     # ----------------------------
-    # ✅ AUTH (Cookie Persist on Refresh)
+    # ✅ AUTH
     # ----------------------------
     cookie_name = config["cookie"].get("name", "legalgpt_auth")
     cookie_expiry_days = float(config["cookie"].get("expiry_days", 30))
@@ -212,10 +212,6 @@ def run_streamlit_app():
         st.session_state["session_id"] = str(uuid.uuid4())
         st.session_state["messages"] = []
     
-    # ✅ SETTINGS STATE TRACKER (Fixes "not opening" issue)
-    if "show_settings" not in st.session_state:
-        st.session_state["show_settings"] = False
-
     # Load history
     all_history = load_all_history()
     cur_sid = st.session_state["session_id"]
@@ -267,12 +263,6 @@ def run_streamlit_app():
 
         st.markdown("<div style='flex-grow: 1; height: 48vh;'></div>", unsafe_allow_html=True)
         
-        # ⚙️ SETTINGS BUTTON (Updated to use Session State)
-        st.markdown("---")
-        if st.button("⚙️ Settings", use_container_width=True, type="secondary"):
-            st.session_state["show_settings"] = True
-            st.rerun()
-            
         # User Profile
         initials = (name[:2].upper() if name else "LG")
         st.markdown(
@@ -294,62 +284,36 @@ def run_streamlit_app():
     st.title("⚖️ LegalGPT")
     st.caption("Indian Evidence Act • Production RAG System")
 
-    # ----------------------------
-    # ⚙️ SETTINGS PANEL
-    # ----------------------------
-    if st.session_state["show_settings"]:
-        st.markdown("---")
-        st.subheader("⚙️ Settings")
-        
-        # Close Button
-        if st.button("✖ Close Settings", type="secondary"):
-            st.session_state["show_settings"] = False
-            st.rerun()
-
-        # Debug Stats
+    # ------------------------------------------------------------------
+    # 🚀 ADMIN TOOLS / REBUILD INDEX (Moved to Main Page)
+    # ------------------------------------------------------------------
+    with st.expander("🛠️ **Admin Tools / Rebuild Index**", expanded=False):
         vsm = VectorStoreManager()
-        col1, col2 = st.columns(2)
-        with col1:
+        
+        col_stat, col_file = st.columns(2)
+        with col_stat:
             st.metric("📊 Vectors Indexed", vsm.count())
-        with col2:
-            st.write("📂 **Source Files:**")
+        
+        with col_file:
+            st.write("**Found Files:**")
             files = list_source_files()
             if files:
-                st.code("\n".join(files), language="text")
+                st.caption(", ".join(files[:3]) + "..." if len(files) > 3 else ", ".join(files))
             else:
-                st.error("❌ No files found in data/uploads/")
+                st.error("No files in data/uploads/")
 
-        # 🔄 REBUILD BUTTON (The Fix)
-        st.markdown("### 🛠️ Index Actions")
-        if st.button("🔄 FORCE REBUILD INDEX", type="primary", use_container_width=True):
-            with st.spinner("⏳ Rebuilding Index... This may take a moment."):
+        if st.button("🔄 **FORCE REBUILD INDEX NOW**", type="primary", use_container_width=True):
+            with st.spinner("⏳ Indexing Evidence Act files..."):
                 docs = load_docs_for_index()
                 if not docs:
-                    st.error("❌ No documents found! Upload PDFs/TXT files first.")
+                    st.error("❌ No files found! Push Evidence txt files to GitHub data/uploads/ first.")
                 else:
                     chunks = split_documents(docs)
                     vsm.add_documents(chunks)
-                    st.success(f"✅ Success! Indexed {len(chunks)} chunks. New vector count: {vsm.count()}")
+                    st.success(f"✅ Success! {len(chunks)} chunks indexed. New vector count: {vsm.count()}")
                     st.rerun()
-        
-        # Debug Tools
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("🧪 Test Query ('murder')", use_container_width=True):
-                try:
-                    res = vsm.collection.query(query_texts=["murder"], n_results=1)
-                    st.success("Retriever working!")
-                    st.json(res["documents"][0])
-                except:
-                    st.error("Index empty!")
-        with c2:
-            if st.button("🗑️ Clear Chat History", use_container_width=True):
-                save_all_history({})
-                st.session_state["messages"] = []
-                st.session_state["session_id"] = str(uuid.uuid4())
-                st.rerun()
-
-        st.markdown("---")
+                    
+        st.info("Click 'Force Rebuild' if you see 'No documents indexed'.")
 
     # ----------------------------
     # CHAT INTERFACE
