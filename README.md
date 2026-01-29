@@ -1,34 +1,73 @@
-📚 LegalRAG – Indian Law Research Assistant (RAG System)
+⚖️ LegalRAG — Indian Evidence Act Research Assistant
 
-A production-ready Retrieval-Augmented Generation (RAG) system for Indian legal documents (Evidence Act, CPC, CrPC, etc.), built using LangChain, ChromaDB, HuggingFace / Groq LLMs, and designed with clean modular architecture.
+Production-Grade Retrieval-Augmented Generation (RAG) System for Indian Law
 
-🚀 Features
+AI-powered legal research system that enables accurate, citation-backed answers from Indian legal documents such as the Indian Evidence Act, IPC, CrPC, CPC, and related statutes — without hallucination outside uploaded documents.
 
-🔍 Semantic search over Indian legal acts & judgments
+🎯 Problem Statement
 
-📄 Chunk-based document ingestion with metadata
+Legal research is:
 
-🧠 Retrieval-Augmented Generation (RAG)
+⏳ Time-consuming
 
-💾 Persistent vector storage using ChromaDB
+❌ Error-prone
 
-🔄 Pluggable LLM providers:
+📚 Fragmented across multiple acts & sections
 
-HuggingFace
+Manual section lookup (e.g., “Section 58 Evidence Act”) often leads to missed context or incorrect interpretation.
 
-Groq (fast & free-tier friendly)
+💡 Solution
 
-🧪 CLI + Streamlit UI support
+LegalRAG uses Retrieval-Augmented Generation (RAG) to:
 
-🏗️ Production-grade folder structure
+Search across thousands of legal sections
 
-❌ No hallucination outside uploaded documents
+Retrieve only relevant chunks
 
-🏗️ Project Structure
+Generate strictly context-based answers
+
+Provide verifiable sources for every response
+
+🛑 Zero hallucination policy
+If the answer is not present in uploaded documents →
+
+“Not available in the uploaded documents.”
+
+🚀 Core Features
+
+✅ Section-wise legal question answering
+✅ Supports Indian Acts (Evidence Act, IPC, CrPC, CPC)
+✅ HuggingFace / Groq / Hybrid LLM providers
+✅ ChromaDB persistent vector storage
+✅ Strict context-only answering
+✅ CLI + Streamlit UI ready
+✅ Production-ready modular architecture
+✅ Chat history isolation (new chat ≠ old history)
+
+🧠 RAG Pipeline (High Level)
+User Query
+   ↓
+Semantic Retriever (ChromaDB)
+   ↓
+Relevant Legal Chunks
+   ↓
+LLM (Groq / HF / Hybrid)
+   ↓
+Answer + Sources
+
+🏗️ Project Structure (Production-Grade)
+
+⚠️ Important: This tree renders correctly because it’s inside a code block.
+
 legalrag/
 │
 ├── config/
-│   └── __init__.py
+│   ├── __init__.py
+│   └── settings.py
+│
+├── data/
+│   ├── uploads/
+│   └── chroma_db/
 │
 ├── src/
 │   ├── __init__.py
@@ -59,56 +98,67 @@ legalrag/
 │   │   └── metrics.py
 │   │
 │   ├── ui/
-│   │   └── __init__.py
+│   │   ├── __init__.py
+│   │   └── streamlit_app.py
 │   │
 │   └── utils/
 │       └── __init__.py
+│
+├── app.py
+├── check_chroma.py
+├── data_cleaning.py
+├── requirements.txt
+├── .env
+└── README.md
 
-✅ Every folder contains __init__.py for stable imports & production readiness.
 
-⚙️ Setup Instructions
-1️⃣ Create Virtual Environment
+✅ Every folder contains __init__.py for stable imports & production readiness
+
+🛠️ Technology Stack
+Component	Technology
+Language	Python 3.10
+RAG Framework	LangChain
+Vector DB	ChromaDB (Persistent)
+Embeddings	HuggingFace Sentence Transformers
+LLMs	Groq / HuggingFace / Hybrid
+UI	Streamlit
+Config	Pydantic Settings
+Logging	Loguru
+⚙️ Installation
+1️⃣ Create Environment
 conda create -n legalrag310 python=3.10
 conda activate legalrag310
 
 2️⃣ Install Dependencies
 pip install -r requirements.txt
 
-🔐 Environment Variables (.env)
+3️⃣ Configure Environment
+
+Create .env file:
+
 API_PROVIDER=groq
+GROQ_API_KEY=your_key_here
 
-GROQ_API_KEY=your_groq_key_here
-
-HF_EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 CHROMA_PERSIST_DIRECTORY=./data/chroma_db
 CHROMA_COLLECTION_NAME=legal_documents
 
-📥 Ingest Documents
+📥 Ingest Legal Documents
 
-Put your legal documents (PDF / TXT) inside:
+Place .txt / .pdf files inside:
 
 data/uploads/
 
 
-Then run:
+Run ingestion:
 
-python -m src.ingestion.run_ingestion
+python src/ingestion/run_ingestion.py
 
 
-✔ Documents are chunked
-✔ Embeddings created
-✔ Stored persistently in ChromaDB
+Verify storage:
 
-🔍 Verify Vector Database
 python check_chroma.py
 
-
-Expected output:
-
-Collection name: legal_documents
-Document count: XXXX
-
-🤖 Ask Questions (CLI)
+🔍 Ask Legal Questions (CLI)
 python -m src.generation.rag_pipeline
 
 
@@ -116,56 +166,77 @@ Example:
 
 Ask: Explain Section 58 of the Indian Evidence Act
 
-🧠 RAG Logic (Strict)
 
-Answers are generated ONLY from retrieved context
+Output:
 
-If relevant context is missing →
-"Not available in the uploaded documents."
+ANSWER:
+Facts admitted need not be proved. If parties admit a fact in writing or in court,
+no further proof is required.
 
-Prevents hallucinations ❌
+SOURCES:
+Evidence_Act_1872_p29_c0.txt | chunk 3
 
-🖥️ Streamlit UI (Optional)
-streamlit run src/ui/streamlit_app.py
+🖥️ Run Streamlit UI
+streamlit run app.py
 
 
 Features:
 
-New Chat
+New chat = fresh history
 
-Independent chat history
+Section-wise search
 
-Source citations
+Source traceability
 
-Clean UI
+📊 Evaluation & Reliability
 
-🧪 Tech Stack
+Context relevance enforced
 
-Python 3.10
+Duplicate chunk filtering
+
+Strict refusal when content missing
+
+No external knowledge injection
+
+🚀 Deployment Ready
+
+✅ Streamlit Cloud
+
+✅ HuggingFace Spaces
+
+✅ Local production
+
+✅ Modular provider switching
+
+🧑‍💼 Interview Value
+
+This project demonstrates:
+
+Real RAG architecture
+
+Production-ready Python
+
+Legal domain understanding
+
+Vector DB design
+
+Prompt safety & hallucination control
+
+📄 License
+
+MIT License
+
+🙌 Acknowledgements
 
 LangChain
 
 ChromaDB
 
-HuggingFace Embeddings
+HuggingFace
 
-Groq LLM
+Groq
 
-Streamlit
-
-Loguru
-
-🎯 Use Cases
-
-Legal research assistant
-
-Law student study tool
-
-AI hackathon project
-
-Resume-grade RAG system
-
-Interview-ready architecture demo
+Indian Legal Open Data
 
 🧠 Future Improvements
 
@@ -178,8 +249,3 @@ Citation highlighting
 Answer confidence scoring
 
 PDF upload via UI
-
-
-Usha Rani
-AI / Full-Stack Developer
-📌 Focus: RAG Systems, LangChain, Agentic AI
