@@ -216,9 +216,8 @@ def run_streamlit_app():
                         }
                         save_config(config)
                         st.success("✅ Account created! Now login.")     
-        st.stop()
 
-    name = st.session_state["name"]
+    name = st.session_state["name","User]
 
     # Theme CSS
     st.markdown(
