@@ -77,5 +77,6 @@ ANSWER:"""
     return {
         "answer": answer_text,
         "sources": [{"source": d.metadata.get("source"), "chunk": d.metadata.get("chunk"), "score": d.metadata.get("score", 0)} for d in docs],
-        "doc_count": len(docs)
+        "doc_count": len(docs),
+        "chat_history_len": len(chat_history_store) 
     }
