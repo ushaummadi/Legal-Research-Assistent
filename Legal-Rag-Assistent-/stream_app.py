@@ -132,26 +132,20 @@ def run_streamlit_app():
         cookie_expiry_days=cookie_expiry_days,
     )
 
-    # IMPORTANT: silent cookie check (does NOT render form)
-    # streamlit-authenticator supports location 'unrendered'. [web:234]
-    # 1. Check cookie first (silent)
     try:
-        # 'unrendered' checks cookie without showing UI
         name, authentication_status, username = authenticator.login(location="sidebar")
     except Exception:
         authentication_status = None
 
-    # 2. If not logged in, show UI
     if authentication_status is not True:
         st.sidebar.markdown("---")
         with st.sidebar.expander("👤 Account", expanded=True):
             tab_login, tab_signup = st.tabs(["Login", "Sign up"])
 
             with tab_login:
-                # NEW SYNTAX: location="sidebar" (no "Login" string first!)
                 name, authentication_status, username = authenticator.login(
                     location="sidebar",
-                    fields={"Form name": "Login"} # Optional label
+                    fields={"Form name": "Login"}
                 )
 
                 if authentication_status is False:
@@ -161,10 +155,7 @@ def run_streamlit_app():
                     st.info("Please login to continue.")
                     st.stop()
 
-            # ... tab_signup remains same ...
-
             with tab_signup:
-                # Keep your SAME signup logic (writes into config.yaml)
                 with st.form("signup_form", clear_on_submit=True):
                     new_fullname = st.text_input("Full Name")
                     new_email = st.text_input("Email")
@@ -190,15 +181,13 @@ def run_streamlit_app():
                         save_config(config)
                         st.success("✅ Account created! Now login.")
                         st.rerun()
-
         st.stop()
 
-    # From here: user is authenticated (refresh will stay logged in via cookie)
     st.session_state["authentication_status"] = True
     st.session_state["username"] = username
     st.session_state["name"] = name
 
-    # Theme CSS (your original)
+    # Theme CSS
     st.markdown(
         """
         <style>
@@ -209,69 +198,10 @@ def run_streamlit_app():
         section[data-testid="stChatInputContainer"],
         .stApp > div > div > div[class*="main"],
         .block-container,
-        [data-testid="stSidebar"] {
-            background-color: #171717 !important;
-        }
-
-        [data-testid="stSidebar"] .stTabs [data-baseweb="tab-list"] {
-            background-color: #212121 !important;
-        }
-        [data-testid="stSidebar"] .stTabs [data-baseweb="tab"] {
-            background-color: transparent !important;
-            color: #ececf1 !important;
-        }
-
-        .stChatInput > div > div { background-color: transparent !important; }
-        .stChatMessage, [data-testid="stChatMessage"] { background-color: transparent !important; }
-
-        [data-testid="metric-container"],
-        [data-testid="stHorizontalBlock"],
-        section[data-testid="stSidebar"] div.element-container {
-            background-color: #171717 !important;
-        }
-
+        [data-testid="stSidebar"] { background-color: #171717 !important; }
         .stTextInput > div > div > div { background-color: #212121 !important; }
         .stButton > button { background-color: #212121 !important; color: #ececf1 !important; }
         * { border-color: #303030 !important; }
-
-        section[data-testid="stSidebar"] .block-container { padding-top: 0.6rem; }
-        [data-testid="stSidebar"] div.stButton { margin-bottom: 0.12rem !important; }
-        [data-testid="stSidebar"] [data-testid="column"] {
-            padding-left: 0.05rem !important; padding-right: 0.05rem !important;
-        }
-
-        [data-testid="stSidebar"] button[kind="secondary"]{
-          background: transparent !important;
-          border: none !important;
-          box-shadow: none !important;
-          color: #ececf1 !important;
-          border-radius: 10px !important;
-        }
-        [data-testid="stSidebar"] button[kind="secondary"]:hover{
-          background: #2a2a2a !important;
-          color: #fff !important;
-        }
-
-        [data-testid="stSidebar"] button[kind="primary"]{
-          background: #353545 !important;
-          border: none !important;
-          box-shadow: none !important;
-          color: #ffffff !important;
-          border-radius: 10px !important;
-        }
-
-        [data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div:first-child button[kind="primary"]{
-          border-top-right-radius: 0px !important;
-          border-bottom-right-radius: 0px !important;
-        }
-        [data-testid="stSidebar"] div[data-testid="stHorizontalBlock"] > div:last-child button[kind="secondary"]{
-          border-top-left-radius: 0px !important;
-          border-bottom-left-radius: 0px !important;
-          width: 38px !important;
-          min-width: 38px !important;
-          padding: 0px !important;
-          font-weight: 900 !important;
-        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -281,6 +211,10 @@ def run_streamlit_app():
     if "session_id" not in st.session_state:
         st.session_state["session_id"] = str(uuid.uuid4())
         st.session_state["messages"] = []
+    
+    # ✅ SETTINGS STATE TRACKER (Fixes "not opening" issue)
+    if "show_settings" not in st.session_state:
+        st.session_state["show_settings"] = False
 
     # Load history
     all_history = load_all_history()
@@ -289,13 +223,10 @@ def run_streamlit_app():
         all_history[cur_sid] = st.session_state["messages"]
         save_all_history(all_history)
 
-    # Settings flag via query param
-    qp = st.query_params
-    show_settings = (qp.get("menu") == "settings")
-
-    # SIDEBAR: chats list (your original)
+    # ----------------------------
+    # SIDEBAR
+    # ----------------------------
     with st.sidebar:
-
         if st.button("➕ New chat", use_container_width=True, type="secondary"):
             current_sid = st.session_state.get("session_id")
             current_msgs = st.session_state.get("messages", [])
@@ -313,142 +244,120 @@ def run_streamlit_app():
         st.caption("Your chats")
         for sid in list(all_history.keys())[::-1]:
             msgs = all_history[sid]
-            if not msgs:
-                continue
+            if not msgs: continue
 
             title = get_chat_title(msgs)
             is_selected = (sid == st.session_state["session_id"])
-
-            c1, c2 = st.columns([1, 0.14], gap="small", vertical_alignment="center")
+            c1, c2 = st.columns([1, 0.14], gap="small")
             with c1:
                 t = "primary" if is_selected else "secondary"
                 if st.button(title, key=f"load_{sid}", use_container_width=True, type=t):
-                    current_sid = st.session_state.get("session_id")
-                    current_msgs = st.session_state.get("messages", [])
-                    if current_sid is not None:
-                        all_history[current_sid] = current_msgs
-                        save_all_history(all_history)
-
                     st.session_state["session_id"] = sid
                     st.session_state["messages"] = msgs.copy()
                     st.rerun()
-
             with c2:
-                if is_selected:
-                    if st.button("✖", key=f"del_{sid}", type="secondary"):
-                        if sid in all_history:
-                            del all_history[sid]
-
-                        if sid == st.session_state["session_id"]:
-                            new_sid = str(uuid.uuid4())
-                            st.session_state["session_id"] = new_sid
-                            st.session_state["messages"] = []
-                            all_history[new_sid] = []
-
-                        save_all_history(all_history)
-                        st.rerun()
-                else:
-                    st.write("")
+                if is_selected and st.button("✖", key=f"del_{sid}", type="secondary"):
+                    del all_history[sid]
+                    if sid == st.session_state["session_id"]:
+                        st.session_state["session_id"] = str(uuid.uuid4())
+                        st.session_state["messages"] = []
+                        all_history[st.session_state["session_id"]] = []
+                    save_all_history(all_history)
+                    st.rerun()
 
         st.markdown("<div style='flex-grow: 1; height: 48vh;'></div>", unsafe_allow_html=True)
-        # ⚙️ SETTINGS BUTTON 👇 ADD
+        
+        # ⚙️ SETTINGS BUTTON (Updated to use Session State)
         st.markdown("---")
         if st.button("⚙️ Settings", use_container_width=True, type="secondary"):
-            st.query_params["menu"] = "settings"
+            st.session_state["show_settings"] = True
             st.rerun()
+            
+        # User Profile
         initials = (name[:2].upper() if name else "LG")
         st.markdown(
             f"""
             <div style='position: sticky; bottom: 0; width: 100%; background: #171717; border-top: 1px solid #303030; padding: 10px 12px;'>
               <div style='display: flex; align-items: center; gap: 10px;'>
                 <div style='width: 36px; height: 36px; border-radius: 8px; background: #7b4ec9; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;'>{initials}</div>
-                <div>
-                  <div style='color: #fff; font-size: 14px; font-weight: 600;'>{name}</div>
-                  <div style='color: #b4b4b4; font-size: 12px;'>Free Plan</div>
-                </div>
+                <div><div style='color: #fff; font-size: 14px; font-weight: 600;'>{name}</div><div style='color: #b4b4b4; font-size: 12px;'>Free Plan</div></div>
               </div>
             </div>
             """,
             unsafe_allow_html=True,
         )
         authenticator.logout(" Log out", "sidebar")
-    # MAIN
+
+    # ----------------------------
+    # MAIN PAGE
+    # ----------------------------
     st.title("⚖️ LegalGPT")
     st.caption("Indian Evidence Act • Production RAG System")
 
-    # SETTINGS PAGE
-    if show_settings:
+    # ----------------------------
+    # ⚙️ SETTINGS PANEL
+    # ----------------------------
+    if st.session_state["show_settings"]:
         st.markdown("---")
         st.subheader("⚙️ Settings")
-
-        col_close, _ = st.columns([0.12, 1], gap="small")
-        with col_close:
-            if st.button("✖", type="secondary"):
-                st.query_params.clear()
-                st.rerun()
-
-        st.markdown("### 🔎 RAG Debug")
-        st.write("DATA_DIR:", str(DATA_DIR))
-        st.write("UPLOADS_DIR:", str(UPLOADS_DIR))
-        st.write("CHROMA_DIR:", str(CHROMA_DIR))
-        st.write("Source files:", list_source_files())
-
-        vsm = VectorStoreManager()
-        st.metric("Chroma vector count", vsm.count())
-
-        cdbg1, cdbg2 = st.columns(2, gap="small")
-        with cdbg1:
-            if st.button("📋 List collections", use_container_width=True, type="secondary"):
-                cols = vsm._client.list_collections()
-                st.write([c.name for c in cols])
-
-        with cdbg2:
-            if st.button("🧪 Test query (evidence)", use_container_width=True, type="secondary"):
-                try:
-                    res = vsm.collection.query(query_texts=["evidence"], n_results=3)
-                    st.json(
-                        {
-                            "docs_count": len(res.get("documents", [[]])[0]),
-                            "distances": res.get("distances", []),
-                            "collection_name": vsm.collection.name,
-                        }
-                    )
-                except Exception as e:
-                    st.error(f"Query failed: {e}")
-
-        st.markdown("### 🔄 Index")
-        if st.button("🔄 Rebuild Index (FORCE)", use_container_width=True, type="primary"):
-            with st.spinner("Re-indexing..."):
-                docs = load_docs_for_index()
-                st.write(f"Loaded docs/pages: {len(docs)}")
-
-                if not docs:
-                    st.error("No documents found in data/ or data/uploads. Add PDFs/TXT, then rebuild.")
-                    st.stop()
-
-                chunks = split_documents(docs)
-                st.write(f"Chunks: {len(chunks)}")
-
-                vsm = VectorStoreManager()
-                vsm.add_documents(chunks)
-                st.success(f"✅ Indexed {len(chunks)} chunks. Chroma now has {vsm.count()} vectors.")
-
-        if st.button("🗑️ Clear History", use_container_width=True, type="secondary"):
-            save_all_history({})
-            st.session_state["messages"] = []
-            st.session_state["session_id"] = str(uuid.uuid4())
-            all_history = {st.session_state["session_id"]: []}
-            save_all_history(all_history)
+        
+        # Close Button
+        if st.button("✖ Close Settings", type="secondary"):
+            st.session_state["show_settings"] = False
             st.rerun()
+
+        # Debug Stats
+        vsm = VectorStoreManager()
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("📊 Vectors Indexed", vsm.count())
+        with col2:
+            st.write("📂 **Source Files:**")
+            files = list_source_files()
+            if files:
+                st.code("\n".join(files), language="text")
+            else:
+                st.error("❌ No files found in data/uploads/")
+
+        # 🔄 REBUILD BUTTON (The Fix)
+        st.markdown("### 🛠️ Index Actions")
+        if st.button("🔄 FORCE REBUILD INDEX", type="primary", use_container_width=True):
+            with st.spinner("⏳ Rebuilding Index... This may take a moment."):
+                docs = load_docs_for_index()
+                if not docs:
+                    st.error("❌ No documents found! Upload PDFs/TXT files first.")
+                else:
+                    chunks = split_documents(docs)
+                    vsm.add_documents(chunks)
+                    st.success(f"✅ Success! Indexed {len(chunks)} chunks. New vector count: {vsm.count()}")
+                    st.rerun()
+        
+        # Debug Tools
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("🧪 Test Query ('murder')", use_container_width=True):
+                try:
+                    res = vsm.collection.query(query_texts=["murder"], n_results=1)
+                    st.success("Retriever working!")
+                    st.json(res["documents"][0])
+                except:
+                    st.error("Index empty!")
+        with c2:
+            if st.button("🗑️ Clear Chat History", use_container_width=True):
+                save_all_history({})
+                st.session_state["messages"] = []
+                st.session_state["session_id"] = str(uuid.uuid4())
+                st.rerun()
 
         st.markdown("---")
 
-    # CHAT RENDER
+    # ----------------------------
+    # CHAT INTERFACE
+    # ----------------------------
     for msg in st.session_state["messages"]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # CHAT INPUT
     if query := st.chat_input("Ask about Evidence Act, CrPC, IPC..."):
         st.session_state["messages"].append({"role": "user", "content": query})
         with st.chat_message("user"):
@@ -462,12 +371,10 @@ def run_streamlit_app():
             placeholder.markdown(answer + "\n\n📚 *Powered by LegalRAG Pipeline*")
 
         st.session_state["messages"].append({"role": "assistant", "content": answer})
-
         all_history = load_all_history()
         all_history[st.session_state["session_id"]] = st.session_state["messages"]
         save_all_history(all_history)
         st.rerun()
-
 
 if __name__ == "__main__":
     run_streamlit_app()
