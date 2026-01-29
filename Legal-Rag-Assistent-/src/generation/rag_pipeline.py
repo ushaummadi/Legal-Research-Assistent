@@ -37,7 +37,8 @@ def format_context(docs: List[Document]) -> str:
         relevant_count += 1
         src = meta.get("source", "unknown")
         chunk = meta.get("chunk", "?")
-        parts.append(f"[{src}:{chunk} | score:{score}] {d.page_content}")
+        parts.append(f"[Section {meta.get('section', 'N/A')} | score:{score}] {d.page_content}")
+
     
     if relevant_count == 0:
         return ""  # Return empty if nothing is good enough
