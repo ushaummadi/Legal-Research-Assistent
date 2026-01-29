@@ -440,7 +440,7 @@ def run_streamlit_app():
         with st.chat_message("assistant"):
             placeholder = st.empty()
             with st.spinner("🔍 Analyzing legal documents..."):
-                result = answer_question(query, chroma_dir=str(CHROMA_DIR))
+                result = answer_question(query)
                 answer = result.get("answer", "")
             placeholder.markdown(answer + "\n\n📚 *Powered by LegalRAG Pipeline*")
 
