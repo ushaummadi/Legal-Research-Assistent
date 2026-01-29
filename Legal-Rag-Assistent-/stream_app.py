@@ -1,6 +1,6 @@
 """
 LegalRAG: Indian Evidence Act RAG Assistant
-Full-Stack Streamlit + Chroma + HuggingFace (2026) 
+Full-Stack Streamlit + Chroma + HuggingFace (2026)
 ✅ ORIGINAL UI + FIXED LOGIN
 """
 
@@ -27,9 +27,11 @@ CHROMA_DIR = DATA_DIR / "chroma_db"
 CONFIG_PATH = BASE_DIR / "config.yaml"
 HISTORY_FILE = BASE_DIR / "chat_history.json"
 
-for d in [DATA_DIR, UPLOADS_DIR, CHROMA_DIR]: d.mkdir(parents=True, exist_ok=True)
+for d in [DATA_DIR, UPLOADS_DIR, CHROMA_DIR]:
+    d.mkdir(parents=True, exist_ok=True)
 
-if str(BASE_DIR) not in sys.path: sys.path.insert(0, str(BASE_DIR))
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 
 os.environ["OTEL_PYTHON_DISABLED"] = "true"
 os.environ.setdefault("CHROMA_PERSIST_DIRECTORY", str(CHROMA_DIR))
@@ -45,12 +47,17 @@ from src.generation.rag_pipeline import answer_question
 # ----------------------------
 def load_all_history():
     if HISTORY_FILE.exists():
-        try: return json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
-        except: return {}
+        try:
+            return json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+        except:
+            return {}
     return {}
 
 def save_all_history(all_history):
-    HISTORY_FILE.write_text(json.dumps(all_history, ensure_ascii=False, indent=2), encoding="utf-8")
+    HISTORY_FILE.write_text(
+        json.dumps(all_history, ensure_ascii=False, indent=2),
+        encoding="utf-8"
+    )
 
 def get_chat_title(messages):
     for msg in messages:
@@ -65,14 +72,20 @@ def save_config(config):
 def list_source_files():
     files = []
     for d in [DATA_DIR, UPLOADS_DIR]:
-        if d.exists(): files += [p.name for p in d.iterdir() if p.is_file()]
+        if d.exists():
+            files += [p.name for p in d.iterdir() if p.is_file()]
     return sorted(set(files))
 
 # ----------------------------
 # MAIN APP
 # ----------------------------
 def run_streamlit_app():
-    st.set_page_config(page_title="LegalGPT", page_icon="⚖️", layout="wide", initial_sidebar_state="expanded")
+    st.set_page_config(
+        page_title="LegalGPT",
+        page_icon="⚖️",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
 
     # Dark Theme CSS
     st.markdown("""
@@ -85,15 +98,21 @@ def run_streamlit_app():
     """, unsafe_allow_html=True)
 
     if not CONFIG_PATH.exists():
-        save_config({"credentials": {"usernames": {}}, "cookie": {"name": "legalgpt", "key": "legal_key", "expiry_days": 30}})
+        save_config({
+            "credentials": {"usernames": {}},
+            "cookie": {"name": "legalgpt", "key": "legal_key", "expiry_days": 30}
+        })
 
     with open(CONFIG_PATH, encoding="utf-8") as f:
         config = yaml.load(f, Loader=SafeLoader) or {}
 
     # ----------------------------
-    # 🔥 BULLETPROOF AUTHENTICATION
+    # 🔥 BULLETPROOF AUTHENTICATION (PERSISTS ON REFRESH)
     # ----------------------------
-    cookie_key = st.secrets.get("AUTH_COOKIE_KEY", config.get("cookie", {}).get("key", "fallback_key"))
+    cookie_key = st.secrets.get(
+        "AUTH_COOKIE_KEY",
+        config.get("cookie", {}).get("key", "fallback_key")
+    )
     authenticator = stauth.Authenticate(
         config["credentials"],
         config.get("cookie", {}).get("name", "legalgpt_auth"),
@@ -103,9 +122,17 @@ def run_streamlit_app():
 
     # Initialize Auth State
     for key in ["authentication_status", "name", "username"]:
-        if key not in st.session_state: st.session_state[key] = None
+        if key not in st.session_state:
+            st.session_state[key] = None
 
-    # LOGIN SCREEN (If not logged in)
+    # Try restoring auth from cookie on page load (silent)
+    if st.session_state["authentication_status"] is None:
+        try:
+            authenticator.login(location="unrendered")
+        except Exception:
+            pass  # ignore if no valid cookie
+
+    # If still not authenticated, show login UI
     if st.session_state["authentication_status"] != "authenticated":
         st.sidebar.markdown("---")
         with st.sidebar.expander("👤 Account", expanded=True):
@@ -115,9 +142,10 @@ def run_streamlit_app():
                 name, auth_status, username = authenticator.login(location="main")
                 if auth_status:
                     st.session_state["authentication_status"] = "authenticated"
-                    st.session_state["name"], st.session_state["username"] = name, username
+                    st.session_state["name"] = name
+                    st.session_state["username"] = username
                     st.rerun()
-                elif auth_status == False:
+                elif auth_status is False:
                     st.error("❌ Wrong credentials")
 
             with tab_signup:
@@ -130,10 +158,14 @@ def run_streamlit_app():
                             st.error("Username exists!")
                         else:
                             hashed = Hasher([new_pass]).generate()[0]
-                            config["credentials"]["usernames"][new_user] = {"name": new_fullname, "password": hashed}
+                            config["credentials"]["usernames"][new_user] = {
+                                "name": new_fullname,
+                                "password": hashed
+                            }
                             save_config(config)
                             st.session_state["authentication_status"] = "authenticated"
-                            st.session_state["name"], st.session_state["username"] = new_fullname, new_user
+                            st.session_state["name"] = new_fullname
+                            st.session_state["username"] = new_user
                             st.rerun()
         st.stop()
 
@@ -148,7 +180,8 @@ def run_streamlit_app():
 
     all_history = load_all_history()
     cur_sid = st.session_state["session_id"]
-    if cur_sid not in all_history: all_history[cur_sid] = []
+    if cur_sid not in all_history:
+        all_history[cur_sid] = []
 
     # SIDEBAR
     with st.sidebar:
@@ -159,12 +192,18 @@ def run_streamlit_app():
         st.caption("Your chats")
         for sid in list(all_history.keys())[::-1]:
             msgs = all_history[sid]
-            if not msgs: continue
+            if not msgs:
+                continue
             title = get_chat_title(msgs)
             is_selected = (sid == cur_sid)
             c1, c2 = st.columns([1, 0.2])
             with c1:
-                if st.button(title, key=f"load_{sid}", use_container_width=True, type=("primary" if is_selected else "secondary")):
+                if st.button(
+                    title,
+                    key=f"load_{sid}",
+                    use_container_width=True,
+                    type=("primary" if is_selected else "secondary")
+                ):
                     st.session_state["session_id"], st.session_state["messages"] = sid, msgs.copy()
                     st.rerun()
             with c2:
@@ -173,12 +212,17 @@ def run_streamlit_app():
                     st.session_state["session_id"], st.session_state["messages"] = str(uuid.uuid4()), []
                     save_all_history(all_history)
                     st.rerun()
-        
+
         st.markdown("<div style='flex-grow: 1; height: 45vh;'></div>", unsafe_allow_html=True)
-        
+
         # Logout & Profile
         if st.button("🚪 Logout", use_container_width=True):
-            for key in ["authentication_status", "name", "username"]: st.session_state[key] = None
+            for key in ["authentication_status", "name", "username"]:
+                st.session_state[key] = None
+            try:
+                authenticator.logout(location="unrendered")
+            except Exception:
+                pass
             st.rerun()
 
         initials = (name[:2].upper() if name else "LG")
@@ -199,11 +243,12 @@ def run_streamlit_app():
     with st.expander("🛠️ **Admin Tools / Rebuild Index**", expanded=False):
         vsm = VectorStoreManager()
         col1, col2 = st.columns(2)
-        with col1: st.metric("📊 Vectors Indexed", vsm.count())
+        with col1:
+            st.metric("📊 Vectors Indexed", vsm.count())
         with col2:
             st.caption("Available Files:")
             files = list_source_files()
-            st.code("\n".join(files[:5]) if files else "No files found", language="text")
+            st.code("\\n".join(files[:5]) if files else "No files found", language="text")
 
         if st.button("🔄 **FORCE REBUILD INDEX NOW**", type="primary", use_container_width=True):
             with st.spinner("⏳ Indexing..."):
@@ -216,11 +261,13 @@ def run_streamlit_app():
 
     # CHAT
     for msg in st.session_state["messages"]:
-        with st.chat_message(msg["role"]): st.markdown(msg["content"])
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
 
     if query := st.chat_input("Ask about Evidence Act..."):
         st.session_state["messages"].append({"role": "user", "content": query})
-        with st.chat_message("user"): st.markdown(query)
+        with st.chat_message("user"):
+            st.markdown(query)
         with st.chat_message("assistant"):
             with st.spinner("🔍 Searching..."):
                 result = answer_question(query)
@@ -230,6 +277,7 @@ def run_streamlit_app():
         all_history[st.session_state["session_id"]] = st.session_state["messages"]
         save_all_history(all_history)
         st.rerun()
+
 
 if __name__ == "__main__":
     run_streamlit_app()
