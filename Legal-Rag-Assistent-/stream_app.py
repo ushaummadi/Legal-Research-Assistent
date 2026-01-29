@@ -1,7 +1,7 @@
 """
 LegalRAG: Indian Evidence Act RAG Assistant
 Full-Stack Streamlit + Chroma + HuggingFace (2026)
-✅ ORIGINAL UI + FIXED LOGIN
+✅ ORIGINAL UI + FIXED LOGIN (persists after refresh)
 """
 
 import os
@@ -107,7 +107,7 @@ def run_streamlit_app():
         config = yaml.load(f, Loader=SafeLoader) or {}
 
     # ----------------------------
-    # 🔥 BULLETPROOF AUTHENTICATION (PERSISTS ON REFRESH)
+    # 🔥 AUTHENTICATION (PERSISTS AFTER REFRESH)
     # ----------------------------
     cookie_key = st.secrets.get(
         "AUTH_COOKIE_KEY",
@@ -120,12 +120,12 @@ def run_streamlit_app():
         cookie_expiry_days=float(config.get("cookie", {}).get("expiry_days", 30))
     )
 
-    # Initialize Auth State
+    # Initialize auth state keys
     for key in ["authentication_status", "name", "username"]:
         if key not in st.session_state:
             st.session_state[key] = None
 
-    # Try restoring auth from cookie on page load (silent)
+    # Try restoring auth from cookie (silent)
     if st.session_state["authentication_status"] is None:
         try:
             authenticator.login(location="unrendered")
