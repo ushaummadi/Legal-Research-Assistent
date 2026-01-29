@@ -56,11 +56,12 @@ def process_file(path: str) -> Dict[str, Any]:
 
     logger.info(f"Processed {path} (chars={len(text)})")
     return {"text": text, "metadata": meta}
-def load_documents() -> list[Document]:
+def load_documents(target_dir: str = None) -> list[Document]:
     """
     Loads all PDFs/DOCX/TXT from settings.DOCS_DIR and returns LangChain Documents.
     """
-    docs_dir = Path(settings.DOCS_DIR)
+    path_str = target_dir if target_dir else settings.DOCS_DIR
+    docs_dir = Path(path_str)
     if not docs_dir.exists():
         logger.warning(f"DOCS_DIR not found: {docs_dir}")
         return []
