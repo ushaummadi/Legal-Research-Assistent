@@ -21,29 +21,31 @@ Format:
 """
 
 def format_context(docs: List[Document]) -> str:
-    """Format with RELAXED score filtering ✅"""
+    """Format with score filtering and clean labels"""
     parts = []
-    relevant_count = 0
+    relevant_count = 0  # ✅ Fixed NameError by initializing here
     
     for d in docs:
         meta = d.metadata
         score = meta.get("score", 0)
         
-        # 🔥 FIXED: Lower threshold from 4.0 → 0.7
-        if score < 0.7:  # ✅ 10x more lenient
+        # 🛑 SCORE FILTER: Ignore weak matches
+        if score < 4.0:
             continue
             
         relevant_count += 1
         
+        # Extract metadata safely
         section_info = meta.get("section", "N/A")
+        
+        # ✅ Fixed NameError by defining display_label inside the loop
         display_label = f"Section {section_info}" if section_info != "N/A" else "Legal Document"
         
-        parts.append(f"[{display_label} | score:{score:.2f}] {d.page_content}")
-    
-    logger.info(f"Retrieved {relevant_count} docs with scores >= 0.7")
+        # Append without filename to keep context clean
+        parts.append(f"[{display_label} | score:{score}] {d.page_content}")
     
     if relevant_count == 0:
-        return ""
+        return ""  # Return empty if nothing is good enough
         
     return "\n\n".join(parts)
 
@@ -56,7 +58,7 @@ def build_history_string(question: str) -> str:
         return f"CURRENT QUESTION: {question}"
     
     history_str = "RECENT CHAT:\n"
-    recent = chat_history_store[-6:]
+    recent = chat_history_store[-6:]  # Last 3 turns
     
     for msg in recent:
         role = "USER" if msg["role"] == "user" else "LEGALGPT"
@@ -70,17 +72,13 @@ def answer_question(question: str) -> dict:
     provider = ProviderFactory.get_provider()
     llm = provider.llm()
 
-    # Retrieve MORE documents
-    docs = retriever.get_relevant_documents(question, k=10)  # 🔥 Increased from default 4
+    # Retrieve relevant documents
+    docs = retriever.get_relevant_documents(question)
     
+    # Apply filtering inside format_context
     context = format_context(docs)
     
-    # 🛑 KEYWORD FALLBACK ✅
-    if not context.strip():
-        logger.warning("No similarity matches, trying keyword search")
-        keyword_docs = retriever.get_relevant_documents("murder OR section OR evidence", k=5)
-        context = format_context(keyword_docs)
-    
+    # 🛑 If context is empty after filtering, stop here.
     if not context.strip():
         fake_answer = "**No relevant sections found in indexed documents.**"
         chat_history_store.append({"role": "user", "content": question})
@@ -108,6 +106,7 @@ ANSWER:"""
         logger.error(f"LLM error: {e}")
         answer_text = "Error generating response. Check embeddings/LLM."
     
+    # Clean up any residual LLM filler like "Based on the context..."
     answer_text = re.sub(r"^(Based on the provided context|According to the documents),?\s*", "", answer_text, flags=re.IGNORECASE)
     
     chat_history_store.append({"role": "user", "content": question})
@@ -115,7 +114,7 @@ ANSWER:"""
     
     return {
         "answer": answer_text,
-        "sources": [{"source": d.metadata.get("source"), "score": d.metadata.get("score", 0)} for d in docs if d.metadata.get("score", 0) >= 0.7],
-        "doc_count": len([d for d in docs if d.metadata.get("score", 0) >= 0.7]),
+        "sources": [{"source": d.metadata.get("source"), "score": d.metadata.get("score", 0)} for d in docs if d.metadata.get("score", 0) >= 4.0],
+        "doc_count": len(docs),
         "chat_history_len": len(chat_history_store) 
     }
