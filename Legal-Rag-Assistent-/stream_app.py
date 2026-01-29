@@ -351,7 +351,11 @@ def run_streamlit_app():
                     st.write("")
 
         st.markdown("<div style='flex-grow: 1; height: 48vh;'></div>", unsafe_allow_html=True)
-
+        # ⚙️ SETTINGS BUTTON 👇 ADD
+        st.markdown("---")
+        if st.button("⚙️ Settings", use_container_width=True, type="secondary"):
+            st.query_params["menu"] = "settings"
+            st.rerun()
         initials = (name[:2].upper() if name else "LG")
         st.markdown(
             f"""
