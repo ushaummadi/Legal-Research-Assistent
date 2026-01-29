@@ -35,7 +35,7 @@ if str(BASE_DIR) not in sys.path:
 
 os.environ["OTEL_PYTHON_DISABLED"] = "true"
 os.environ.setdefault("CHROMA_PERSIST_DIRECTORY", str(CHROMA_DIR))
-os.environ.setdefault("DOCS_DIR", str(UPLOADS_DIR))  # IMPORTANT: point to uploads
+os.environ.setdefault("DOCS_DIR", str(UPLOADS_DIR))      # point to uploads
 os.environ.setdefault("UPLOADS_DIR", str(UPLOADS_DIR))
 
 # ✅ App imports (after paths)
@@ -57,13 +57,11 @@ def load_all_history():
             return {}
     return {}
 
-
 def save_all_history(all_history):
     HISTORY_FILE.write_text(
         json.dumps(all_history, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-
 
 def get_chat_title(messages):
     for msg in messages:
@@ -71,11 +69,9 @@ def get_chat_title(messages):
             return msg["content"][:28] + "..." if len(msg["content"]) > 28 else msg["content"]
     return "New Chat"
 
-
 def save_config(config):
     with open(CONFIG_PATH, "w", encoding="utf-8") as f:
         yaml.dump(config, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
-
 
 def list_source_files():
     files = []
@@ -84,7 +80,6 @@ def list_source_files():
     if UPLOADS_DIR.exists():
         files += [p.name for p in UPLOADS_DIR.iterdir() if p.is_file()]
     return sorted(set(files))
-
 
 def load_docs_for_index():
     # Prefer uploads folder, fallback to data/
@@ -115,7 +110,9 @@ def run_streamlit_app():
     config.setdefault("credentials", {}).setdefault("usernames", {})
     config.setdefault("cookie", {})
 
-    # Cookie config (keep stable across redeploys)
+    # ----------------------------
+    # ✅ AUTH (Cookie Persist on Refresh)
+    # ----------------------------
     cookie_name = config["cookie"].get("name", "legalgpt_auth")
     cookie_expiry_days = float(config["cookie"].get("expiry_days", 30))
     cookie_key = (
@@ -135,31 +132,38 @@ def run_streamlit_app():
         cookie_expiry_days=cookie_expiry_days,
     )
 
-    # Sidebar login + signup
-    if st.session_state["authentication_status"] is not True:
+    # IMPORTANT: silent cookie check (does NOT render form)
+    # streamlit-authenticator supports location 'unrendered'. [web:234]
+    name, authentication_status, username = authenticator.login("unrendered")  # [web:234]
+
+    # If not logged in, show Login/Signup UI (same sidebar expander + tabs)
+    if authentication_status is not True:
         st.sidebar.markdown("---")
         with st.sidebar.expander("👤 Account", expanded=True):
             tab_login, tab_signup = st.tabs(["Login", "Sign up"])
 
             with tab_login:
-                st.info("👋 Welcome to LegalGPT")
-                with st.form("login_form", clear_on_submit=False):
-                    u = st.text_input("Username")
-                    p = st.text_input("Password", type="password")
-                    login_ok = st.form_submit_button("Login")
+                # NEW API: login(location, fields=...). Avoid deprecated form_name param. [web:235]
+                fields = {
+                    "Form name": "Login",
+                    "Username": "Username",
+                    "Password": "Password",
+                    "Login": "Login",
+                }
+                name, authentication_status, username = authenticator.login(
+                    "sidebar",
+                    fields=fields,
+                )  # [web:235]
 
-                if login_ok:
-                    user = config.get("credentials", {}).get("usernames", {}).get(u)
-                    if user and Hasher.check_pw(p, user["password"]):
-                        st.session_state["authentication_status"] = True
-                        st.session_state["username"] = u
-                        st.session_state["name"] = user.get("name", u)
-                        st.success("✅ Logged in!")
-                        st.rerun()
-                    else:
-                        st.error("❌ Wrong credentials")
+                if authentication_status is False:
+                    st.error("❌ Wrong credentials")
+                    st.stop()
+                if authentication_status is None:
+                    st.info("Please login to continue.")
+                    st.stop()
 
             with tab_signup:
+                # Keep your SAME signup logic (writes into config.yaml)
                 with st.form("signup_form", clear_on_submit=True):
                     new_fullname = st.text_input("Full Name")
                     new_email = st.text_input("Email")
@@ -188,9 +192,10 @@ def run_streamlit_app():
 
         st.stop()
 
-    name = st.session_state["name"]
-    username = st.session_state["username"]
-    authentication_status = st.session_state["authentication_status"]
+    # From here: user is authenticated (refresh will stay logged in via cookie)
+    st.session_state["authentication_status"] = True
+    st.session_state["username"] = username
+    st.session_state["name"] = name
 
     # Theme CSS (your original)
     st.markdown(
@@ -289,6 +294,9 @@ def run_streamlit_app():
 
     # SIDEBAR: chats list (your original)
     with st.sidebar:
+        # Logout button (cookie clear)
+        authenticator.logout("🚪 Log out", "sidebar")
+
         if st.button("➕ New chat", use_container_width=True, type="secondary"):
             current_sid = st.session_state.get("session_id")
             current_msgs = st.session_state.get("messages", [])
@@ -419,7 +427,6 @@ def run_streamlit_app():
                 st.write(f"Chunks: {len(chunks)}")
 
                 vsm = VectorStoreManager()
-                # NOTE: if you want NO duplicates on rebuild, implement vsm.clear() and call it here.
                 vsm.add_documents(chunks)
                 st.success(f"✅ Indexed {len(chunks)} chunks. Chroma now has {vsm.count()} vectors.")
 
