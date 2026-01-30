@@ -107,7 +107,7 @@ def run_streamlit_app():
         config = yaml.load(f, Loader=SafeLoader) or {}
 
     # ----------------------------
-    # 🔥 AUTHENTICATION (PERSISTS AFTER REFRESH)
+    # 🔥 AUTHENTICATION (FIXED: Persists after refresh)
     # ----------------------------
     cookie_key = st.secrets.get(
         "AUTH_COOKIE_KEY",
@@ -125,27 +125,21 @@ def run_streamlit_app():
         if key not in st.session_state:
             st.session_state[key] = None
 
-    # Try restoring auth from cookie (silent)
-    if st.session_state["authentication_status"] is None:
-        try:
-            authenticator.login(location="unrendered")
-        except Exception:
-            pass  # ignore if no valid cookie
+    # Call login ONCE (this restores from cookie AND renders form)
+    authenticator.login(location="main")  # returns None; status goes into st.session_state
 
-    # If still not authenticated, show login UI
-    if st.session_state["authentication_status"] != "authenticated":
+    auth_status = st.session_state["authentication_status"]
+    name       = st.session_state["name"]
+    username   = st.session_state["username"]
+
+    # If not authenticated, show login UI
+    if auth_status != "authenticated":
         st.sidebar.markdown("---")
         with st.sidebar.expander("👤 Account", expanded=True):
             tab_login, tab_signup = st.tabs(["Login", "Sign up"])
 
             with tab_login:
-                name, auth_status, username = authenticator.login(location="main")
-                if auth_status:
-                    st.session_state["authentication_status"] = "authenticated"
-                    st.session_state["name"] = name
-                    st.session_state["username"] = username
-                    st.rerun()
-                elif auth_status is False:
+                if auth_status is False:
                     st.error("❌ Wrong credentials")
 
             with tab_signup:
