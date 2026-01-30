@@ -1,8 +1,8 @@
 """
-LegalRAG: FIXED LOGIN PERSISTENCE + VERSION-SAFE AUTH
-✅ Works on Streamlit Cloud (v0.4.x) & Local (v0.3.x)
-✅ Persistent Login on Refresh (F5)
-✅ Full RAG Pipeline Integration
+LegalRAG: FINAL PRODUCTION CODE
+✅ Fixed Login (Persistent + Version Safe)
+✅ New Cookie Name (Fixes KeyError)
+✅ Full RAG Integration
 """
 
 import os
@@ -92,43 +92,41 @@ def run_streamlit_app():
     </style>
     """, unsafe_allow_html=True)
 
-    # Load config
+    # Load/Create Config
     if not CONFIG_PATH.exists():
         save_config({
             "credentials": {"usernames": {}},
-            "cookie": {"name": "legalgpt", "key": "legal_key", "expiry_days": 30}
+            "cookie": {"name": "legalgpt_v2", "key": "new_secure_key", "expiry_days": 30},
+            "preauthorized": {"emails": []}
         })
 
     with open(CONFIG_PATH, encoding="utf-8") as f:
         config = yaml.load(f, Loader=SafeLoader) or {}
 
-    # 🔥 SAFE AUTHENTICATION INIT (Handles missing keys gracefully)
-    cookie_config = config.get("cookie", {})
+    # 🔥 SAFE AUTH INIT (Uses "legalgpt_v2" cookie to fix KeyError)
+    cookie = config.get("cookie", {})
     authenticator = stauth.Authenticate(
         config["credentials"],
-        cookie_config.get("name", "legalgpt_auth"),
-        cookie_config.get("key", "legal_key"),
-        float(cookie_config.get("expiry_days", 30))
+        cookie.get("name", "legalgpt_v2"),  # Changed name = Resets bad cookies
+        cookie.get("key", "new_secure_key"),
+        float(cookie.get("expiry_days", 30))
     )
 
-    # ⚠️ CRITICAL FIX: CALL LOGIN() WITHOUT UNPACKING + NO KEY PARAM
-    # This works for both v0.3.3 (returns tuple) and v0.4.x (returns None/Widget)
+    # ⚠️ SAFE LOGIN CALL
     try:
-        authenticator.login("sidebar")  # Try new signature
-    except TypeError:
-        # Fallback for older versions if needed (though "sidebar" string usually works for 'location')
+        authenticator.login("sidebar")
+    except Exception:
         authenticator.login(location="sidebar")
 
-    # 🔥 READ STATUS DIRECTLY FROM SESSION_STATE (Version Agnostic!)
-    authentication_status = st.session_state.get("authentication_status")
+    # 🔥 READ STATUS
+    auth_status = st.session_state.get("authentication_status")
     name = st.session_state.get("name")
     username = st.session_state.get("username")
 
-    # Show Login/Signup UI ONLY if not authenticated
-    if authentication_status != "authenticated":
+    # LOGIN UI
+    if auth_status != "authenticated":
         st.sidebar.markdown("### 🔐 Login Required")
         
-        # Signup Form
         with st.sidebar.expander("📝 Create Account", expanded=False):
             with st.form("signup_form", clear_on_submit=True):
                 new_fullname = st.text_input("Full Name")
@@ -141,23 +139,24 @@ def run_streamlit_app():
                         hashed = Hasher([new_pass]).generate()[0]
                         config["credentials"]["usernames"][new_user] = {
                             "name": new_fullname,
-                            "password": hashed
+                            "password": hashed,
+                            "email": "",
+                            "logged_in": False
                         }
                         save_config(config)
-                        st.success("✅ Created! Please login.")
+                        st.success("✅ Account created! Please login.")
                         st.rerun()
 
-        # Login Error Handling
-        if authentication_status == "failed":
-            st.sidebar.error("❌ User/Pass incorrect")
-        elif authentication_status is False:
+        if auth_status == "failed":
+            st.sidebar.error("❌ Invalid credentials")
+        elif auth_status is False:
             st.sidebar.error("❌ Login failed")
             
-        st.stop()  # Stop execution until logged in
+        st.stop()
 
-    # ✅ AUTHENTICATED - Main App Starts Here
+    # ✅ AUTHENTICATED APP
     
-    # Session State Init
+    # Init Session
     if "session_id" not in st.session_state:
         st.session_state["session_id"] = str(uuid.uuid4())
         st.session_state["messages"] = []
@@ -167,7 +166,7 @@ def run_streamlit_app():
     if cur_sid not in all_history:
         all_history[cur_sid] = []
 
-    # Sidebar: Chats + Profile
+    # SIDEBAR
     with st.sidebar:
         if st.button("➕ New Chat", use_container_width=True, type="secondary"):
             st.session_state["session_id"] = str(uuid.uuid4())
@@ -214,21 +213,20 @@ def run_streamlit_app():
 
         if st.button("🚪 Logout", use_container_width=True):
             try:
-                authenticator.logout(location="sidebar")  # Try with location
-            except TypeError:
-                authenticator.logout()  # Fallback
+                authenticator.logout(location="sidebar")
+            except:
+                authenticator.logout()
             st.rerun()
 
-    # Main Content
+    # MAIN CONTENT
     st.title("⚖️ LegalGPT")
     st.caption("Indian Evidence Act • Production RAG System")
 
-    # Admin Tools
     with st.expander("🛠️ Admin Tools / Rebuild Index", expanded=False):
         vsm = VectorStoreManager()
         col1, col2 = st.columns(2)
         with col1:
-            st.metric("📊 Vectors Indexed", vsm.count())
+            st.metric("📊 Vectors", vsm.count())
         with col2:
             files = list_source_files()
             st.caption("Files:")
@@ -243,12 +241,12 @@ def run_streamlit_app():
                     st.success(f"✅ {len(chunks)} chunks indexed!")
                     st.rerun()
 
-    # Chat Interface
+    # CHAT
     for msg in st.session_state["messages"]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    if query := st.chat_input("Ask about Evidence Act, CrPC, Constitution..."):
+    if query := st.chat_input("Ask about Evidence Act..."):
         st.session_state["messages"].append({"role": "user", "content": query})
         with st.chat_message("user"):
             st.markdown(query)
