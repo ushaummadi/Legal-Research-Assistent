@@ -220,7 +220,7 @@ def run_streamlit_app():
         st.markdown("<div style='flex-grow: 1; height: 45vh;'></div>", unsafe_allow_html=True)
 
         # Logout & Profile
-        if st.button("🚪 Logout", use_container_width=True):
+        if st.button(use_container_width=True):
             for key in ["authentication_status", "name", "username"]:
                 st.session_state[key] = None
             try:
