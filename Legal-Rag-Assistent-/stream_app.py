@@ -193,12 +193,7 @@ def run_streamlit_app():
 
         # Logout & Profile
         if st.button("🚪 Logout", use_container_width=True):
-            for key in ["authentication_status", "name", "username"]:
-                st.session_state[key] = None
-            try:
-                authenticator.logout(location="unrendered")
-            except Exception:
-                pass
+            authenticator.logout(location="unrendered")
             st.rerun()
 
         initials = (name[:2].upper() if name else "LG")
