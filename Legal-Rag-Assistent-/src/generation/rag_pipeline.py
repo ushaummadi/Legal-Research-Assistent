@@ -73,7 +73,7 @@ def answer_question(question: str) -> dict:
     llm = provider.llm()
 
     # Retrieve relevant documents
-    docs = retriever.get_relevant_documents(question,k=15)
+    docs = retriever.get_relevant_documents(question)
     
     # Apply filtering inside format_context
     context = format_context(docs)
