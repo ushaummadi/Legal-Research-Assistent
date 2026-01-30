@@ -142,7 +142,7 @@ def run_streamlit_app():
                 name, auth_status, username = authenticator.login(location="main")
                 if authentication_status is None:
                     st.rerun()
-                eif authentication_status is False:
+                if authentication_status is False:
                     st.error("❌ Incorrect username or password")
                     st.stop()
 
