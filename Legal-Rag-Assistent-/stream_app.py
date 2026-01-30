@@ -140,13 +140,7 @@ def run_streamlit_app():
             tab_login, tab_signup = st.tabs(["Login", "Sign up"])
 
             with tab_login:
-                name, auth_status, username = authenticator.login(location="main")
-                if auth_status:
-                    st.session_state["authentication_status"] = "authenticated"
-                    st.session_state["name"] = name
-                    st.session_state["username"] = username
-                    st.rerun()
-                elif auth_status is False:
+                if st.session_state["authentication_status"] is False:
                     st.error("❌ Wrong credentials")
 
             with tab_signup:
