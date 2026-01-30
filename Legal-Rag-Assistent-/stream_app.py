@@ -224,7 +224,7 @@ def run_streamlit_app():
             except Exception:
                 pass
             st.rerun()
-        st.session_state["authentication_status"] = True
+        st.session_state["authentication_status"] = "authenticated"
         st.session_state["username"] = username
         st.session_state["name"] = name
         initials = (name[:2].upper() if name else "LG")
