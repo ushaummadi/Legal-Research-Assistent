@@ -109,15 +109,12 @@ def run_streamlit_app():
     # ----------------------------
     # 🔥 AUTHENTICATION (PERSISTS AFTER REFRESH)
     # ----------------------------
-    cookie_key = st.secrets.get(
-        "AUTH_COOKIE_KEY",
-        config.get("cookie", {}).get("key", "fallback_key")
-    )
+    cookie_key = st.secrets["AUTH_COOKIE_KEY"]
     authenticator = stauth.Authenticate(
         config["credentials"],
-        config.get("cookie", {}).get("name", "legalgpt_auth"),
+        config["cookie"]["name"],
         cookie_key,
-        cookie_expiry_days=float(config.get("cookie", {}).get("expiry_days", 30))
+        cookie_expiry_days=config["cookie"]["expiry_days"]
     )
 
     # Initialize auth state keys
@@ -139,7 +136,7 @@ def run_streamlit_app():
             tab_login, tab_signup = st.tabs(["Login", "Sign up"])
 
             with tab_login:
-                name, auth_status, username = authenticator.login(location="main")
+                name, auth_status, username = authenticator.login("Login",location="main")
                 if auth_status:
                     st.session_state["authentication_status"] = "authenticated"
                     st.session_state["name"] = name
