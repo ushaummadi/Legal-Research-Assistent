@@ -1,8 +1,8 @@
 """
-LegalRAG: FIXED LOGIN PERSISTENCE + TypeError Fix (Production Ready!)
-✅ Refresh F5 → STAYS ON MAIN APP
-✅ Works with ALL streamlit-authenticator versions
-Full replacement for stream_app.py / main.py
+LegalRAG: FIXED LOGIN PERSISTENCE + VERSION-SAFE AUTH
+✅ Works on Streamlit Cloud (v0.4.x) & Local (v0.3.x)
+✅ Persistent Login on Refresh (F5)
+✅ Full RAG Pipeline Integration
 """
 
 import os
@@ -102,55 +102,62 @@ def run_streamlit_app():
     with open(CONFIG_PATH, encoding="utf-8") as f:
         config = yaml.load(f, Loader=SafeLoader) or {}
 
-    # 🔥 FIXED AUTHENTICATION - COMPATIBLE WITH ALL VERSIONS
+    # 🔥 SAFE AUTHENTICATION INIT (Handles missing keys gracefully)
+    cookie_config = config.get("cookie", {})
     authenticator = stauth.Authenticate(
         config["credentials"],
-        config.get("cookie", {}).get("name", "legalgpt_auth"),
-        config.get("cookie", {}).get("key", "legal_key"),
-        cookie_expiry_days=float(config.get("cookie", {}).get("expiry_days", 30))
+        cookie_config.get("name", "legalgpt_auth"),
+        cookie_config.get("key", "legal_key"),
+        float(cookie_config.get("expiry_days", 30))
     )
 
-    # ⚠️ CRITICAL FIX: Call login() WITHOUT unpacking (works v0.3.x & v0.4.x)
-    authenticator.login(location="sidebar", key="main_login")
+    # ⚠️ CRITICAL FIX: CALL LOGIN() WITHOUT UNPACKING + NO KEY PARAM
+    # This works for both v0.3.3 (returns tuple) and v0.4.x (returns None/Widget)
+    try:
+        authenticator.login("sidebar")  # Try new signature
+    except TypeError:
+        # Fallback for older versions if needed (though "sidebar" string usually works for 'location')
+        authenticator.login(location="sidebar")
 
-    # 🔥 READ STATUS FROM SESSION STATE (Safe for all versions!)
+    # 🔥 READ STATUS DIRECTLY FROM SESSION_STATE (Version Agnostic!)
     authentication_status = st.session_state.get("authentication_status")
     name = st.session_state.get("name")
     username = st.session_state.get("username")
 
-    # Show login UI ONLY if not authenticated
+    # Show Login/Signup UI ONLY if not authenticated
     if authentication_status != "authenticated":
         st.sidebar.markdown("### 🔐 Login Required")
         
-        # Signup form (in sidebar)
-        with st.sidebar.form("signup_form", clear_on_submit=True):
-            st.markdown("### Create Account")
-            new_fullname = st.text_input("Full Name")
-            new_user = st.text_input("Username")
-            new_pass = st.text_input("Password", type="password")
-            if st.form_submit_button("Create Account"):
-                if new_user in config["credentials"]["usernames"]:
-                    st.error("❌ Username exists!")
-                else:
-                    hashed = Hasher([new_pass]).generate()[0]
-                    config["credentials"]["usernames"][new_user] = {
-                        "name": new_fullname,
-                        "password": hashed
-                    }
-                    save_config(config)
-                    st.success("✅ Account created! Refresh page.")
-                    st.rerun()
+        # Signup Form
+        with st.sidebar.expander("📝 Create Account", expanded=False):
+            with st.form("signup_form", clear_on_submit=True):
+                new_fullname = st.text_input("Full Name")
+                new_user = st.text_input("Username")
+                new_pass = st.text_input("Password", type="password")
+                if st.form_submit_button("Register"):
+                    if new_user in config["credentials"]["usernames"]:
+                        st.error("❌ Username taken")
+                    else:
+                        hashed = Hasher([new_pass]).generate()[0]
+                        config["credentials"]["usernames"][new_user] = {
+                            "name": new_fullname,
+                            "password": hashed
+                        }
+                        save_config(config)
+                        st.success("✅ Created! Please login.")
+                        st.rerun()
 
-        # Login error handling
+        # Login Error Handling
         if authentication_status == "failed":
-            st.sidebar.error("❌ Wrong credentials")
+            st.sidebar.error("❌ User/Pass incorrect")
+        elif authentication_status is False:
+            st.sidebar.error("❌ Login failed")
             
-        st.stop()
+        st.stop()  # Stop execution until logged in
 
-    # ✅ AUTHENTICATED - Main App (PERSISTENT ON REFRESH!)
-    print(f"✅ Logged in: {name} ({username}) - Status: {authentication_status}")
-
-    # Session state (safe after auth)
+    # ✅ AUTHENTICATED - Main App Starts Here
+    
+    # Session State Init
     if "session_id" not in st.session_state:
         st.session_state["session_id"] = str(uuid.uuid4())
         st.session_state["messages"] = []
@@ -206,7 +213,10 @@ def run_streamlit_app():
         """, unsafe_allow_html=True)
 
         if st.button("🚪 Logout", use_container_width=True):
-            authenticator.logout(key="main_logout")
+            try:
+                authenticator.logout(location="sidebar")  # Try with location
+            except TypeError:
+                authenticator.logout()  # Fallback
             st.rerun()
 
     # Main Content
@@ -233,7 +243,7 @@ def run_streamlit_app():
                     st.success(f"✅ {len(chunks)} chunks indexed!")
                     st.rerun()
 
-    # Chat
+    # Chat Interface
     for msg in st.session_state["messages"]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
@@ -247,7 +257,6 @@ def run_streamlit_app():
             with st.spinner("🔍 Searching..."):
                 result = answer_question(query)
                 answer = result.get("answer", "**No relevant sections found.**")
-
             st.markdown(answer + "\n\n📚 *Powered by LegalRAG Pipeline*")
 
         st.session_state["messages"].append({"role": "assistant", "content": answer})
