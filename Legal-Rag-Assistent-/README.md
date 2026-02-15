@@ -1,44 +1,91 @@
 ⚖️ LegalRAG — Indian Evidence Act Research Assistant
-
 Production-Grade Retrieval-Augmented Generation (RAG) System for Indian Law
 
-AI-powered legal research system that enables accurate, citation-backed answers from Indian legal documents such as the Indian Evidence Act, IPC, CrPC, CPC, and related statutes — without hallucination outside uploaded documents.
+AI-powered legal research system that provides accurate, citation-backed answers strictly from uploaded Indian legal documents such as:
+
+Indian Evidence Act
+
+IPC
+
+CrPC
+
+CPC
+
+Other Indian statutes
+
+🚫 No hallucinations.
+📄 No external knowledge.
+📌 Only document-grounded answers.
 
 🎯 Problem Statement
 
-Legal research is:
+Legal research in India is:
 
 ⏳ Time-consuming
 
-❌ Error-prone
+❌ Prone to misinterpretation
 
-📚 Fragmented across multiple acts & sections
+📚 Fragmented across multiple Acts & Sections
 
-Manual section lookup (e.g., “Section 58 Evidence Act”) often leads to missed context or incorrect interpretation.
+🔍 Dependent on manual section lookup
 
-💡 Solution
+Example:
+Searching for “Section 58 Evidence Act” manually may miss related context or judicial interpretation.
+
+💡 Solution — LegalRAG
 
 LegalRAG uses Retrieval-Augmented Generation (RAG) to:
 
 Search across thousands of legal sections
 
-Retrieve only relevant chunks
+Retrieve only the most relevant chunks
 
 Generate strictly context-based answers
 
-Provide verifiable sources for every response
+Provide verifiable document citations
 
-🛑 Zero hallucination policy If the answer is not present in uploaded documents →
+Enforce zero hallucination policy
+
+If answer is not found in uploaded documents:
 
 “Not available in the uploaded documents.”
 
-🚀 Core Features
+🌟 Core Features
 
-✅ Section-wise legal question answering ✅ Supports Indian Acts (Evidence Act, IPC, CrPC, CPC) ✅ HuggingFace / Groq / Hybrid LLM providers ✅ ChromaDB persistent vector storage ✅ Strict context-only answering ✅ CLI + Streamlit UI ready ✅ Production-ready modular architecture ✅ Chat history isolation (new chat ≠ old history)
+✅ Section-wise legal question answering
+✅ Supports Indian Acts (Evidence Act, IPC, CrPC, CPC)
+✅ HuggingFace / Groq / Hybrid LLM providers
+✅ ChromaDB persistent vector storage
+✅ Strict context-only answering
+✅ CLI + Streamlit UI support
+✅ Modular provider abstraction
+✅ Chat history isolation (New chat ≠ old session)
+✅ Duplicate chunk filtering
+✅ Context relevance enforcement
 
-🧠 RAG Pipeline (High Level) User Query ↓ Semantic Retriever (ChromaDB) ↓ Relevant Legal Chunks ↓ LLM (Groq / HF / Hybrid) ↓ Answer + Sources
+🧠 RAG Pipeline Overview
+User Query
+     ↓
+Semantic Retriever (ChromaDB)
+     ↓
+Relevant Legal Chunks
+     ↓
+LLM (Groq / HuggingFace / Hybrid)
+     ↓
+Answer + Verifiable Sources
 
-🏗️ Project Structure (Production-Grade)
+
+Design Goals:
+
+Accuracy over creativity
+
+Context enforcement
+
+Safe prompt engineering
+
+Production reliability
+
+🏗️ Production-Grade Architecture
 legalrag/
 │
 ├── config/                # Configuration management
@@ -48,120 +95,155 @@ legalrag/
 ├── uploads/               # User uploaded docs
 ├── chroma_db/             # Persistent vector DB
 │
-├── src/                   # Core Application
-│   │
+├── src/
 │   ├── ingestion/         # Document → Embeddings
-│   │   ├── document_processor.py
-│   │   └── run_ingestion.py
-│   │
 │   ├── retrieval/         # Semantic search
-│   │   └── retriever.py
-│   │
 │   ├── generation/        # RAG pipeline
-│   │   └── rag_pipeline.py
-│   │
 │   ├── providers/         # LLM abstraction layer
-│   │   ├── groq_provider.py
-│   │   ├── huggingface_provider.py
-│   │   ├── hybrid_provider.py
-│   │   └── factory.py
-│   │
 │   ├── evaluation/        # Metrics
-│   │   └── metrics.py
-│   │
 │   ├── ui/                # Streamlit frontend
-│   │   └── streamlit_app.py
-│   │
 │   └── utils/             # Helper functions
 │
 ├── requirements.txt
 ├── .env
 └── README.md
 
-✅ Every folder contains init.py for stable imports & production readiness
 
-🛠️ Technology Stack Component Technology Language Python 3.10 RAG Framework LangChain Vector DB ChromaDB (Persistent) Embeddings HuggingFace Sentence Transformers LLMs Groq / HuggingFace / Hybrid UI Streamlit Config Pydantic Settings Logging Loguru ⚙️ Installation 
-1️⃣ Create Environment conda create -n legalrag310 python=3.10 conda activate legalrag310
+✔ Every folder contains __init__.py
+✔ Clean modular separation
+✔ Provider factory pattern
+✔ Production-safe imports
 
-2️⃣ Install Dependencies pip install -r requirements.txt
+🛠 Technology Stack
+Component	Technology
+Language	Python 3.10
+RAG Framework	LangChain
+Vector Database	ChromaDB (Persistent)
+Embeddings	HuggingFace Sentence Transformers
+LLM Providers	Groq / HuggingFace / Hybrid
+UI	Streamlit
+Configuration	Pydantic Settings
+Logging	Loguru
+⚙️ Installation Guide
+1️⃣ Create Environment
+conda create -n legalrag310 python=3.10
+conda activate legalrag310
+
+2️⃣ Install Dependencies
+pip install -r requirements.txt
 
 3️⃣ Configure Environment
 
 Create .env file:
 
-API_PROVIDER=groq GROQ_API_KEY=your_key_here
+API_PROVIDER=groq
+GROQ_API_KEY=your_key_here
 
-CHROMA_PERSIST_DIRECTORY=./data/chroma_db CHROMA_COLLECTION_NAME=legal_documents
+CHROMA_PERSIST_DIRECTORY=./data/chroma_db
+CHROMA_COLLECTION_NAME=legal_documents
 
 📥 Ingest Legal Documents
 
-Place .txt / .pdf files inside:
+Place .txt or .pdf files inside:
 
 data/uploads/
+
 
 Run ingestion:
 
 python src/ingestion/run_ingestion.py
 
-Verify storage:
+
+Verify vector storage:
 
 python check_chroma.py
 
-🔍 Ask Legal Questions (CLI) python -m src.generation.rag_pipeline
+🔍 Ask Legal Questions (CLI)
+python -m src.generation.rag_pipeline
+
 
 Example:
 
-Ask: Explain Section 58 of the Indian Evidence Act
+Input:
+
+Explain Section 58 of the Indian Evidence Act
+
 
 Output:
 
-ANSWER: Facts admitted need not be proved. If parties admit a fact in writing or in court, no further proof is required.
+ANSWER:
+Facts admitted need not be proved. If parties admit a fact in writing or in court, no further proof is required.
 
-SOURCES: Evidence_Act_1872_p29_c0.txt | chunk 3
+SOURCES:
+Evidence_Act_1872_p29_c0.txt | chunk 3
 
-🖥️ Run Streamlit UI streamlit run app.py
+🖥️ Run Streamlit UI
+streamlit run app.py
+
 
 Features:
 
-New chat = fresh history
+Fresh chat isolation
 
-Section-wise search
+Section-based queries
 
 Source traceability
 
-📊 Evaluation & Reliability
+Clean legal answer formatting
 
-Context relevance enforced
+📊 Reliability & Safety
 
-Duplicate chunk filtering
-
-Strict refusal when content missing
-
-No external knowledge injection
+✔ Context-only enforcement
+✔ Duplicate chunk filtering
+✔ Strict refusal on missing content
+✔ No external knowledge injection
+✔ Controlled temperature for deterministic output
 
 🚀 Deployment Ready
 
-✅ Streamlit Cloud
+Supports:
 
-✅ HuggingFace Spaces
+Streamlit Cloud
 
-✅ Local production
+HuggingFace Spaces
 
-✅ Modular provider switching
+Local production deployment
+
+Modular provider switching
+
+Persistent vector DB
 
 🧑‍💼 Interview Value
 
 This project demonstrates:
 
-Real RAG architecture
+Real-world RAG architecture
 
-Production-ready Python
-
-Legal domain understanding
-
-Vector DB design
+Vector database engineering
 
 Prompt safety & hallucination control
+
+Modular Python system design
+
+Legal-domain AI implementation
+
+Multi-provider LLM abstraction
+
+Production-level folder structure
+
+🔮 Future Improvements
+
+Section-aware retriever (Exact section matching)
+
+Multi-Act filtering system
+
+Citation highlighting in UI
+
+Answer confidence scoring
+
+PDF upload directly via UI
+
+Legal summarization mode
 
 📄 License
 
@@ -178,15 +260,3 @@ HuggingFace
 Groq
 
 Indian Legal Open Data
-
-🧠 Future Improvements
-
-Section-aware retriever (Section 58 → exact match)
-
-Multi-Act filtering
-
-Citation highlighting
-
-Answer confidence scoring
-
-PDF upload via UI
